@@ -7,7 +7,7 @@ This is a basic implementation of a mention system using [MudBlazor](https://mud
 ## Quick Start
 
 ```sh
-git clone ...
+git clone https://github.com/drocha87/blazorServerMentions
 cd blazorServerMentions
 dotnet watch run
 ```
