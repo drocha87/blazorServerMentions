@@ -1,0 +1,26 @@
+﻿@page "/"
+
+@using blazorServerMentions.Pages.Components;
+
+<PageTitle>Mentions</PageTitle>
+
+
+<MudText Typo="Typo.h3" GutterBottom="true">How to use it</MudText>
+
+<MudText Class="mb-8">
+    Type <b>@@</b> and start typing some letters for example <b>as</b>
+</MudText>
+
+<MudAlert Severity="Severity.Normal">
+    You can select the member using arrow up <MudIcon Icon="@Icons.Material.Filled.ArrowUpward"></MudIcon>
+    and arrow down <MudIcon Icon="@Icons.Material.Filled.ArrowDownward"></MudIcon>.
+    You can close the mention box pression <b>Escape</b> or select the user typing <b>Enter</b>
+</MudAlert>
+
+<div class="mt-8">
+    <MentionTextArea Text="@Text" />
+</div>
+
+@code {
+    public string? Text { get; set; }
+}

@@ -1,0 +1,85 @@
+<MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
+
+<MudStack Row AlignItems="AlignItems.Start">
+    <div id="_mentionBoxContainer" class="flex-grow-1">
+        @if (_showMentionBox && _mentionBoxWidth is not null)
+        {
+                <MudPopover
+                    Class="_mentionBoxPopover"
+                    Style="@($"width: {_mentionBoxWidth}px;")"
+                    Open="true"
+                    OverflowBehavior="OverflowBehavior.FlipAlways"
+                    AnchorOrigin="Origin.TopLeft"
+                    TransformOrigin="Origin.BottomLeft">
+
+                <MudList Clickable Dense @bind-SelectedValue="_selectedSuggestionIndex">
+                    <MudListSubheader>
+                        Members
+                    </MudListSubheader>
+                    <MudDivider />
+
+                    @if (_suggestions is not null)
+                    {
+                        @if (_suggestions.Count == 0)
+                        {
+                            <MudListItem>
+                                <MudText Typo="Typo.subtitle2">
+                                    Member with username <b>@_query</b> not found.
+                                </MudText>
+                            </MudListItem>
+                        }
+                        else
+                        {
+                            @foreach (var (user, index) in _suggestions.Select((user, index) => (user, index)))
+                            {
+                                <MudListItem Value="@index" OnClick="@(() => OnSelectedUser(user))">
+                                    <MudStack Row AlignItems="AlignItems.Center">
+                                        @if (!string.IsNullOrEmpty(user.Avatar))
+                                        {
+                                            <MudAvatar Image="@user.Avatar" Size="Size.Small"></MudAvatar>
+                                        }
+                                        else
+                                        {
+                                            <MudAvatar Size="Size.Small">
+                                                <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small"/>
+                                            </MudAvatar>
+                                        }
+
+                                        <MudText Typo="Typo.body1">
+                                        @user.Name
+                                        </MudText>
+
+                                        <MudSpacer></MudSpacer>
+                                        <MudText Typo="Typo.caption">
+                                            @@@user.Username
+                                        </MudText>
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        <MudListItem>
+                            <MudText Typo="Typo.subtitle2">
+                                Type at least one letter to start the search
+                            </MudText>
+                        </MudListItem>
+                    }
+
+                    @* TODO: add a footer *@
+                </MudList>
+            </MudPopover>
+        }
+
+        <MudTextField @bind-Value="Text"
+                      @ref="_mentionBox"
+                      Immediate
+                      Label="@Placeholder"
+                      Variant="Variant.Outlined"
+                      Lines="2"
+                      Counter="400"
+                      OnKeyDown="CheckKey" />
+    </div>
+</MudStack>
