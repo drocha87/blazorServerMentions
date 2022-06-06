@@ -18,7 +18,7 @@ function initializeMentionBox(element) {
     if (mp.length > 0) {
       switch (ev.key) {
         case "ArrowUp":
-        case "ArroDown":
+        case "ArrowDown":
         case "Enter":
         case "Escape":
           ev.preventDefault();
