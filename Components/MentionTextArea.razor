@@ -34,7 +34,7 @@
                         {
                             @foreach (var (item, index) in _suggestions.Select((item, index) => (item, index)))
                             {
-                                <MudListItem Value="@index" OnClick="@(() => OnSelectedUser(item))">
+                                <MudListItem Value="@index" OnClick="@(() => OnItemSelected(item))">
                                     @if (SuggestionContentItem is not null)
                                     {
                                         @SuggestionContentItem(item)

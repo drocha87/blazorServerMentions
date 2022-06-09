@@ -2,7 +2,7 @@ using blazorServerMentions.Components;
 
 namespace blazorServerMentions.Data;
 
-public class Profile : IMentionProfile
+public class Profile : IMentionItem
 {
     public string Username { get; set; } = null!;
 

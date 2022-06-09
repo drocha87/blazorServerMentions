@@ -7,13 +7,14 @@ using MudBlazor;
 
 namespace blazorServerMentions.Components;
 
-public interface IMentionProfile
+public interface IMentionItem
 {
+    // FIXME: this property should be named differently
     string Username { get; set; }
 }
 
 public partial class MentionTextArea<T> : ComponentBase, IDisposable
-    where T : IMentionProfile
+    where T : IMentionItem
 {
     [Inject] IJSRuntime JS { get; set; } = null!;
 
@@ -21,7 +22,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
 
     private class Word
     {
-        public string Text;
+        public string Text { get; set; } = null!;
         public int Caret;
     }
 
@@ -161,16 +162,16 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         DisposeTimer();
         if (!string.IsNullOrEmpty(CurrentWord) && SearchFunc is not null)
         {
-            _suggestions = await SearchFunc(CurrentWord[1..]); // ProfileSvc.GetProfiles(CurrentWord[1..], MaxSuggestions);
+            _suggestions = await SearchFunc(CurrentWord[1..]);
             await InvokeAsync(StateHasChanged);
         }
     }
 
-    public async Task OnSelectedUser(T user)
+    public async Task OnItemSelected(T item)
     {
         if (_texts is not null)
         {
-            var username = "@" + user.Username!;
+            var username = "@" + item.Username!;
             var word = _texts[_currentWordIndex];
 
             _texts[_currentWordIndex] = new() { Text = username, Caret = word.Caret };
@@ -193,7 +194,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
                 w.Caret += completionLength;
             }
 
-            // update the caret position after the suggestion been added
+            // update caret position after the suggestion been added
             _caretPosition = cursor;
         }
     }
@@ -257,7 +258,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
                             return;
 
                         case "Enter":
-                            await OnSelectedUser(_suggestions![(int)SelectedSuggestionIndex]);
+                            await OnItemSelected(_suggestions![(int)SelectedSuggestionIndex]);
                             return;
 
                         case "Escape":
