@@ -14,7 +14,14 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     [Inject] ProfileService ProfileSvc { get; set; } = null!;
 
     private string? _text;
-    private List<string>? _texts;
+
+    private class Word
+    {
+        public string Text;
+        public int Caret;
+    }
+
+    private List<Word>? _texts;
 
     [Parameter]
     public string? Text
@@ -37,11 +44,21 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     private bool _showMentionBox = false;
     private int? _mentionBoxWidth;
 
-    private int _startCaretPosition = 0;
     private int _caretPosition = 0;
-    private int _highlightWord = 0;
+    private int _currentWordIndex = 0;
 
-    private string? _query;
+    private string CurrentWord
+    {
+        get
+        {
+            if (_texts is not null && _currentWordIndex < _texts.Count)
+            {
+                return _texts[_currentWordIndex].Text;
+            }
+            return "";
+        }
+    }
+
     private List<Profile>? _suggestions;
     private object _selectedSuggestionIndex = 0;
 
@@ -57,12 +74,14 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     protected override void OnParametersSet()
     {
         _texts = new();
+        _currentWordIndex = 0;
     }
 
     private void UpdateTexts(string? text)
     {
         if (text is not null)
         {
+            var caret = 0;
             _texts = new();
 
             // FIXME: for some reason if I have an empty space followed by a new line
@@ -73,8 +92,9 @@ public partial class MentionTextArea : ComponentBase, IDisposable
             {
                 if (part.Length > 0)
                 {
-                    _texts.Add(part);
+                    _texts.Add(new() { Text = part, Caret = caret });
                 }
+                caret += part.Length;
             }
         }
     }
@@ -88,7 +108,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
             foreach (var (txt, i) in _texts.Select((txt, i) => (txt, i)))
             {
                 index = i;
-                acc += txt.Length;
+                acc += txt.Text.Length;
                 if (acc >= caret)
                 {
                     break;
@@ -103,7 +123,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
         if (_textarea is not null)
         {
             _caretPosition = await JS.InvokeAsync<int>("getElementCaretPosition", _textarea);
-            _highlightWord = CaretPositionToWordIndex(_caretPosition);
+            _currentWordIndex = CaretPositionToWordIndex(_caretPosition);
         }
     }
 
@@ -132,16 +152,10 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     public async void OnSearchAsync(object? sender, EventArgs e)
     {
         DisposeTimer();
-        if (!string.IsNullOrEmpty(Text))
+        if (!string.IsNullOrEmpty(CurrentWord))
         {
-            _query = Text[(_startCaretPosition + 1)..];
-            _query = _query.Split(" ")[0];
-
-            if (!string.IsNullOrEmpty(_query))
-            {
-                _suggestions = await ProfileSvc.GetProfiles(_query, MaxSuggestions);
-                await InvokeAsync(StateHasChanged);
-            }
+            _suggestions = await ProfileSvc.GetProfiles(CurrentWord[1..], MaxSuggestions);
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -149,13 +163,31 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     {
         if (_texts is not null)
         {
-            var index = CaretPositionToWordIndex(_startCaretPosition);
-            _texts[index] = "@" + user.Username!;
+            var username = "@" + user.Username!;
+            var word = _texts[_currentWordIndex];
 
-            var cursor = _startCaretPosition + 1 + user.Username!.Length;
-            var text = string.Join("", _texts);
+            _texts[_currentWordIndex] = new() { Text = username, Caret = word.Caret };
+
+            var completionLength = username.Length - word.Text.Length;
+            var cursor = word.Caret + username.Length;
+
+            var text = "";
+            foreach (var w in _texts)
+            {
+                text += w.Text;
+            }
+
             await JS.InvokeVoidAsync("updateMentionBoxText", _textarea, text, cursor);
             ResetMentions();
+
+            // XXX: as we are adding text from the suggestion we should recalculate all words caret index
+            foreach (var w in _texts.Skip(_currentWordIndex + 1))
+            {
+                w.Caret += completionLength;
+            }
+
+            // update the caret position after the suggestion been added
+            _caretPosition = cursor;
         }
     }
 
@@ -164,71 +196,26 @@ public partial class MentionTextArea : ComponentBase, IDisposable
         if (_showMentionBox)
         {
             DisposeTimer();
-            _query = null;
             _showMentionBox = false;
-            _startCaretPosition = 0;
             _suggestions?.Clear();
             _suggestions = null;
             _selectedSuggestionIndex = 0;
         }
     }
 
-    private async Task OpenMentionBox(int caret)
+    private async Task OpenMentionBox()
     {
         _mentionBoxWidth = await JS.InvokeAsync<int>("getElementWidthById", "_mentionBoxContainer");
         _showMentionBox = true;
-        _startCaretPosition = caret;
-        _query = null;
         _suggestions = null;
     }
 
     private async Task ShouldOpenMentionBox()
     {
-        var caret = await JS.InvokeAsync<int>("getElementCaretPosition", _textarea);
-
-        if (caret > 0 && Text is not null && Text.Length >= caret)
+        if (!string.IsNullOrEmpty(CurrentWord) && CurrentWord[0] == '@' && !_showMentionBox)
         {
-            // getElementCaretPosition return the position indexed by 1 but we want it to be
-            // indexed by 0
-            var index = caret - 1;
-            bool openBox = false;
-
-            bool done = false;
-            while (!done && index >= 0)
-            {
-                switch (Text[index])
-                {
-                    case ' ':
-                    case '\n':
-                        done = true;
-                        break;
-
-                    case '@':
-                        openBox = true;
-                        index -= 1;
-                        break;
-
-                    default:
-                        // in this case the character before `@` is not an space so we should not open the mention
-                        // box, since it could be an email or something like this.
-                        if (openBox)
-                        {
-                            openBox = false;
-                            done = true;
-                        }
-                        index -= 1;
-                        break;
-                }
-            }
-
-            if (openBox)
-            {
-                // in all cases we must increment the index, since if the `@` was found at the first
-                // position in Text the index at this point will be -1, and if the `@` was found after
-                // an empty space the index should point to the `@` which is the next character.
-                await OpenMentionBox(index + 1);
-                return;
-            }
+            await OpenMentionBox();
+            return;
         }
         ResetMentions();
     }
@@ -282,7 +269,6 @@ public partial class MentionTextArea : ComponentBase, IDisposable
             DisposeTimer();
 
             await ShouldOpenMentionBox();
-
             if (_showMentionBox)
             {
                 // only if the mention box is opened we reset/start the timer

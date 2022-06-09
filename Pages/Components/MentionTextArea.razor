@@ -24,7 +24,7 @@
                         {
                             <MudListItem>
                                 <MudText Typo="Typo.subtitle2">
-                                    Member with username <b>@_query</b> not found.
+                                    Member with username <b>@(CurrentWord[1..])</b> not found.
                                 </MudText>
                             </MudListItem>
                         }
@@ -86,7 +86,7 @@
                 <div class="fake-textarea mention-typo">
                     @if (_texts is not null)
                     {
-                        @foreach (var (t, i) in _texts.Select((t, i) => (t, i)))
+                        @foreach (var (t, i) in _texts.Select((t, i) => (t.Text, i)))
                         {
                             @if (t.StartsWith('@'))
                             {
@@ -98,7 +98,7 @@
                             {
                                 <br>
                             }
-                            else if (i == _highlightWord)
+                            else if (i == _currentWordIndex)
                             {
                                 <span class="rounded highlight">
                                     @t
