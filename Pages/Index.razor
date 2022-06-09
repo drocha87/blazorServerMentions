@@ -1,6 +1,9 @@
 ﻿@page "/"
 
+@using blazorServerMentions.Data;
 @using blazorServerMentions.Components;
+
+@inject ProfileService ProfileSvc
 
 <PageTitle>Mentions</PageTitle>
 
@@ -18,10 +21,39 @@
     </MudAlert>
 
     <div class="mt-8">
-        <MentionTextArea Text="@Text" />
+        <MentionTextArea T="Profile" Text="@Text" SearchFunc="@SearchFunc">
+            <SuggestionContentItem>
+                <MudStack Row AlignItems="AlignItems.Center">
+                    @if (!string.IsNullOrEmpty(context.Avatar))
+                    {
+                        <MudAvatar Image="@context.Avatar" Size="Size.Small"></MudAvatar>
+                    }
+                    else
+                    {
+                        <MudAvatar Size="Size.Small">
+                            <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small"/>
+                        </MudAvatar>
+                    }
+
+                    <MudText Typo="Typo.body1">
+                        @context.Name
+                    </MudText>
+
+                    <MudSpacer></MudSpacer>
+                    <MudText Typo="Typo.caption">
+                        @@@context.Username
+                    </MudText>
+                </MudStack>
+            </SuggestionContentItem>
+        </MentionTextArea>
     </div>
 </MudContainer>
 
 @code {
     public string? Text { get; set; }
+
+    private async Task<List<Profile>?> SearchFunc(string query)
+    {
+        return await ProfileSvc.GetProfiles(query, limit: 5);
+    }
 }

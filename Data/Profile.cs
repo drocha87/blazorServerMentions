@@ -1,8 +1,11 @@
+using blazorServerMentions.Components;
+
 namespace blazorServerMentions.Data;
 
-public class Profile
+public class Profile : IMentionProfile
 {
+    public string Username { get; set; } = null!;
+
     public string? Name;
     public string? Avatar;
-    public string? Username;
 }

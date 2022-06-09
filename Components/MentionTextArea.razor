@@ -1,3 +1,5 @@
+@typeparam T
+
 <MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
 
 <MudStack Row AlignItems="AlignItems.Start">
@@ -30,34 +32,20 @@
                         }
                         else
                         {
-                            @foreach (var (user, index) in _suggestions.Select((user, index) => (user, index)))
+                            @foreach (var (item, index) in _suggestions.Select((item, index) => (item, index)))
                             {
-                                <MudListItem Value="@index" OnClick="@(() => OnSelectedUser(user))">
-                                    <MudStack Row AlignItems="AlignItems.Center">
-                                        @if (!string.IsNullOrEmpty(user.Avatar))
-                                        {
-                                            <MudAvatar Image="@user.Avatar" Size="Size.Small"></MudAvatar>
-                                        }
-                                        else
-                                        {
-                                            <MudAvatar Size="Size.Small">
-                                                <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small"/>
-                                            </MudAvatar>
-                                        }
-
-                                        <MudText Typo="Typo.body1">
-                                        @user.Name
-                                        </MudText>
-
-                                        <MudSpacer></MudSpacer>
-                                        <MudText Typo="Typo.caption">
-                                            @@@user.Username
-                                        </MudText>
-                                    </MudStack>
+                                <MudListItem Value="@index" OnClick="@(() => OnSelectedUser(item))">
+                                    @if (SuggestionContentItem is not null)
+                                    {
+                                        @SuggestionContentItem(item)
+                                    }
+                                    else
+                                    {
+                                        <span>@item.Username</span>
+                                    }
                                 </MudListItem>
                             }
                         }
-
                     }
                     else
                     {

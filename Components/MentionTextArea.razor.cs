@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using blazorServerMentions.Data;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -8,10 +7,15 @@ using MudBlazor;
 
 namespace blazorServerMentions.Components;
 
-public partial class MentionTextArea : ComponentBase, IDisposable
+public interface IMentionProfile
+{
+    string Username { get; set; }
+}
+
+public partial class MentionTextArea<T> : ComponentBase, IDisposable
+    where T : IMentionProfile
 {
     [Inject] IJSRuntime JS { get; set; } = null!;
-    [Inject] ProfileService ProfileSvc { get; set; } = null!;
 
     private string? _text;
 
@@ -39,6 +43,9 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     [Parameter] public string? Placeholder { get; set; }
     [Parameter] public int DebounceTimer { get; set; } = 500;
     [Parameter] public int MaxSuggestions { get; set; } = 5;
+    [Parameter] public Func<string, Task<List<T>?>> SearchFunc { get; set; } = null!;
+
+    [Parameter] public RenderFragment<T>? SuggestionContentItem { get; set; }
 
     private ElementReference? _textarea;
     private bool _showMentionBox = false;
@@ -59,7 +66,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
         }
     }
 
-    private List<Profile>? _suggestions;
+    private List<T>? _suggestions;
     private object SelectedSuggestionIndex { get; set; } = 0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -86,7 +93,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
 
             // FIXME: for some reason if I have an empty space followed by a new line
             // I'll have an additional string with length 0. It should not happen, I think
-            // the problem is with the regex I'm using the split the text.
+            // the problem is with the regex I'm using to split the text.
             string[] parts = Regex.Split(text, @"([.,;\s])");
             foreach (var part in parts)
             {
@@ -152,14 +159,14 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     public async void OnSearchAsync(object? sender, EventArgs e)
     {
         DisposeTimer();
-        if (!string.IsNullOrEmpty(CurrentWord))
+        if (!string.IsNullOrEmpty(CurrentWord) && SearchFunc is not null)
         {
-            _suggestions = await ProfileSvc.GetProfiles(CurrentWord[1..], MaxSuggestions);
+            _suggestions = await SearchFunc(CurrentWord[1..]); // ProfileSvc.GetProfiles(CurrentWord[1..], MaxSuggestions);
             await InvokeAsync(StateHasChanged);
         }
     }
 
-    public async Task OnSelectedUser(Profile user)
+    public async Task OnSelectedUser(T user)
     {
         if (_texts is not null)
         {
