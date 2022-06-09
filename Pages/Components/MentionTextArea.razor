@@ -73,13 +73,45 @@
             </MudPopover>
         }
 
-        <MudTextField @bind-Value="Text"
-                      @ref="_mentionBox"
-                      Immediate
-                      Label="@Placeholder"
-                      Variant="Variant.Outlined"
-                      Lines="2"
-                      Counter="400"
-                      OnKeyDown="CheckKey" />
+        <div class="mention-main-container">
+            <div id="fake-container" class="relative">
+                <textarea @ref="_textarea"
+                          @bind-value="Text"
+                          @bind-value:event="oninput"
+                          class="mention-textarea mention-typo"
+                          @onclick="UpdateCaretPosition"
+                          @onkeydown="CheckKey">
+                </textarea>
+
+                <div class="fake-textarea mention-typo">
+                    @if (_texts is not null)
+                    {
+                        @foreach (var (t, i) in _texts.Select((t, i) => (t, i)))
+                        {
+                            @if (t.StartsWith('@'))
+                            {
+                                <span class="rounded highlight-mention">
+                                    @t
+                                </span>
+                            }
+                            else if (t.Equals("\n"))
+                            {
+                                <br>
+                            }
+                            else if (i == _highlightWord)
+                            {
+                                <span class="rounded highlight">
+                                    @t
+                                </span>
+                            }
+                            else
+                            {
+                                <span>@t</span>
+                            }
+                        }
+                    }
+                </div>
+            </div>
+        </div>
     </div>
 </MudStack>

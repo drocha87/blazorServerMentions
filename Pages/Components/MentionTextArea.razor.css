@@ -1,0 +1,60 @@
+.mention-main-container {
+  padding: 10px;
+  border-radius: var(--mud-default-borderradius);
+
+  border-color: var(--mud-palette-grey-light);
+  border-style: solid;
+  border-width: 1px;
+}
+
+.mention-main-container:focus-within {
+  /* I need to remove one pixel of padding to avoid changing the size of the textarea
+     when focus in or focus out */
+  padding: 9px;
+
+  border-color: var(--mud-palette-primary);
+  border-style: solid;
+  border-width: 2px;
+}
+
+.mention-typo {
+  font-family: var(--mud-typography-subtitle1-family);
+  font-size: var(--mud-typography-subtitle1-size);
+  font-weight: var(--mud-typography-subtitle1-weight);
+  line-height: var(--mud-typography-subtitle1-lineheight);
+  letter-spacing: var(--mud-typography-subtitle1-letterspacing);
+  text-transform: var(--mud-typography-subtitle1-text-transform);
+}
+
+.mention-textarea {
+  background-color: transparent;
+  color: transparent;
+
+  caret-color: black;
+  outline: none;
+  resize: none;
+
+  width: 100%;
+  min-height: 60px;
+  overflow: hidden;
+}
+
+.fake-textarea {
+  position: absolute;
+  z-index: -1;
+  /* background-color: #bde0fe; */
+  /* display: inline-block; */
+
+  user-select: text;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  /* word-wrap: break-word; */
+}
+
+.fake-textarea .highlight {
+  background-color: #ffbe0b;
+}
+
+.fake-textarea .highlight-mention {
+  background-color: #bde0fe;
+}

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using blazorServerMentions.Data;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -12,18 +13,33 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     [Inject] IJSRuntime JS { get; set; } = null!;
     [Inject] ProfileService ProfileSvc { get; set; } = null!;
 
-    [Parameter] public string? Text { get; set; }
+    private string? _text;
+    private List<string>? _texts;
+
+    [Parameter]
+    public string? Text
+    {
+        get => _text;
+        set
+        {
+            _text = value;
+            TextChanged.InvokeAsync(_text).AndForget();
+            UpdateTexts(_text);
+        }
+    }
+    [Parameter] public EventCallback<string> TextChanged { get; set; }
+
     [Parameter] public string? Placeholder { get; set; }
     [Parameter] public int DebounceTimer { get; set; } = 500;
     [Parameter] public int MaxSuggestions { get; set; } = 5;
 
-    // [Parameter] public EventCallback<string> TextChanged { get; set; }
-
-    private MudTextField<string>? _mentionBox;
+    private ElementReference? _textarea;
     private bool _showMentionBox = false;
     private int? _mentionBoxWidth;
 
     private int _startCaretPosition = 0;
+    private int _caretPosition = 0;
+    private int _highlightWord = 0;
 
     private string? _query;
     private List<Profile>? _suggestions;
@@ -33,7 +49,61 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("initializeMentionBox", _mentionBox!.InputReference.ElementReference);
+            await JS.InvokeVoidAsync("initializeMentionBox", _textarea);
+            _mentionBoxWidth = await JS.InvokeAsync<int>("getElementWidthById", "_mentionBoxContainer");
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        _texts = new();
+    }
+
+    private void UpdateTexts(string? text)
+    {
+        if (text is not null)
+        {
+            _texts = new();
+
+            // FIXME: for some reason if I have an empty space followed by a new line
+            // I'll have an additional string with length 0. It should not happen, I think
+            // the problem is with the regex I'm using the split the text.
+            string[] parts = Regex.Split(text, @"([.,;\s])");
+            foreach (var part in parts)
+            {
+                if (part.Length > 0)
+                {
+                    _texts.Add(part);
+                }
+            }
+        }
+    }
+
+    private int CaretPositionToWordIndex(int caret)
+    {
+        int index = 0;
+        if (_texts is not null)
+        {
+            int acc = 0;
+            foreach (var (txt, i) in _texts.Select((txt, i) => (txt, i)))
+            {
+                index = i;
+                acc += txt.Length;
+                if (acc > caret)
+                {
+                    break;
+                }
+            }
+        }
+        return index;
+    }
+
+    private async Task UpdateCaretPosition()
+    {
+        if (_textarea is not null)
+        {
+            _caretPosition = await JS.InvokeAsync<int>("getElementCaretPosition", _textarea);
+            _highlightWord = CaretPositionToWordIndex(_caretPosition);
         }
     }
 
@@ -77,23 +147,14 @@ public partial class MentionTextArea : ComponentBase, IDisposable
 
     public async Task OnSelectedUser(Profile user)
     {
-        if (Text is not null && _query is not null)
+        if (_texts is not null)
         {
-            // FIXME: I feel that I can improve this piece of code
-            var first = Text[.._startCaretPosition];
-            var second = Text[(_startCaretPosition + 1)..];
+            var index = CaretPositionToWordIndex(_startCaretPosition);
+            _texts[index] = "@" + user.Username!;
 
-            var index = second.IndexOf(' ');
-            second = index > 0 ? second[index..] : "";
-
-            var text = $"{first}@{user.Username}{second}";
-
-            // update cursor position
-            var cursor = first.Length + 1 + user.Username!.Length;
-
-            var reference = _mentionBox!.InputReference.ElementReference;
-            await JS.InvokeVoidAsync("updateMentionBoxText", reference, text, cursor);
-
+            var cursor = _startCaretPosition + 1 + user.Username!.Length;
+            var text = string.Join("", _texts);
+            await JS.InvokeVoidAsync("updateMentionBoxText", _textarea, text, cursor);
             ResetMentions();
         }
     }
@@ -123,8 +184,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
 
     private async Task ShouldOpenMentionBox()
     {
-        var reference = _mentionBox!.InputReference.ElementReference;
-        var caret = await JS.InvokeAsync<int>("getElementCaretPosition", reference);
+        var caret = await JS.InvokeAsync<int>("getElementCaretPosition", _textarea);
 
         if (caret > 0 && Text is not null && Text.Length >= caret)
         {
@@ -139,6 +199,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
                 switch (Text[index])
                 {
                     case ' ':
+                    case '\n':
                         done = true;
                         break;
 
@@ -176,7 +237,9 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     {
         try
         {
-            if (_mentionBox is null)
+            await UpdateCaretPosition();
+
+            if (_textarea is null)
             {
                 // TODO: handle this case
                 return;
@@ -184,6 +247,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
 
             if (_showMentionBox)
             {
+
                 // handle keys if mention box is opened
                 switch (ev.Key)
                 {
