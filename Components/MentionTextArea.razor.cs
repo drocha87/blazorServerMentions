@@ -6,7 +6,7 @@ using Microsoft.JSInterop;
 
 using MudBlazor;
 
-namespace blazorServerMentions.Pages.Components;
+namespace blazorServerMentions.Components;
 
 public partial class MentionTextArea : ComponentBase, IDisposable
 {
