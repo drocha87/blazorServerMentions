@@ -4,6 +4,8 @@
 
 This is a basic implementation of a mention system using [MudBlazor](https://mudblazor.com/).
 
+This system is able to highlight the current word (just for demonstration purpose).
+
 ## Quick Start
 
 ```sh
