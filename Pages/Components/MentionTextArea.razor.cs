@@ -60,7 +60,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     }
 
     private List<Profile>? _suggestions;
-    private object _selectedSuggestionIndex = 0;
+    private object SelectedSuggestionIndex { get; set; } = 0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -199,7 +199,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
             _showMentionBox = false;
             _suggestions?.Clear();
             _suggestions = null;
-            _selectedSuggestionIndex = 0;
+            SelectedSuggestionIndex = 0;
         }
     }
 
@@ -224,55 +224,50 @@ public partial class MentionTextArea : ComponentBase, IDisposable
     {
         try
         {
-            await UpdateCaretPosition();
-
-            if (_textarea is null)
+            if (_textarea is not null)
             {
-                // TODO: handle this case
-                return;
-            }
-
-            if (_showMentionBox)
-            {
-
-                // handle keys if mention box is opened
-                switch (ev.Key)
+                if (_showMentionBox)
                 {
-                    case "ArrowUp":
-                        // handle previous suggestion
-                        _selectedSuggestionIndex =
-                            (int)_selectedSuggestionIndex == 0 ?
-                            _suggestions!.Count - 1 :
-                            (object)((int)_selectedSuggestionIndex - 1);
+                    // handle keys if mention box is opened
+                    switch (ev.Key)
+                    {
+                        case "ArrowUp":
+                            // handle next suggestion
+                            SelectedSuggestionIndex = (int)SelectedSuggestionIndex - 1;
+                            if ((int)SelectedSuggestionIndex < 0)
+                            {
+                                SelectedSuggestionIndex = _suggestions!.Count - 1;
+                            }
+                            return;
 
-                        return;
+                        case "ArrowDown":
+                            // handle next suggestion
+                            SelectedSuggestionIndex = (int)SelectedSuggestionIndex + 1;
+                            if ((int)SelectedSuggestionIndex >= _suggestions!.Count)
+                            {
+                                SelectedSuggestionIndex = 0;
+                            }
+                            return;
 
-                    case "ArrowDown":
-                        // handle next suggestion
-                        _selectedSuggestionIndex =
-                            (int)_selectedSuggestionIndex < _suggestions!.Count - 1 ?
-                            (int)_selectedSuggestionIndex + 1 :
-                            (object)0;
+                        case "Enter":
+                            await OnSelectedUser(_suggestions![(int)SelectedSuggestionIndex]);
+                            return;
 
-                        return;
-
-                    case "Enter":
-                        await OnSelectedUser(_suggestions![(int)_selectedSuggestionIndex]);
-                        return;
-
-                    case "Escape":
-                        ResetMentions();
-                        return;
+                        case "Escape":
+                            ResetMentions();
+                            return;
+                    }
                 }
-            }
 
-            DisposeTimer();
+                await UpdateCaretPosition();
+                DisposeTimer();
 
-            await ShouldOpenMentionBox();
-            if (_showMentionBox)
-            {
-                // only if the mention box is opened we reset/start the timer
-                StartTimer();
+                await ShouldOpenMentionBox();
+                if (_showMentionBox)
+                {
+                    // only if the mention box is opened we reset/start the timer
+                    StartTimer();
+                }
             }
         }
         catch (JSException e)
