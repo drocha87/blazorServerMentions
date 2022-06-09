@@ -89,7 +89,7 @@ public partial class MentionTextArea : ComponentBase, IDisposable
             {
                 index = i;
                 acc += txt.Length;
-                if (acc > caret)
+                if (acc >= caret)
                 {
                     break;
                 }
