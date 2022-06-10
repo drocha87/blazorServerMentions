@@ -52,7 +52,7 @@
 @code {
     public string? Text { get; set; }
 
-    private async Task<List<Profile>?> SearchFunc(string query)
+    private async Task<IEnumerable<Profile>?> SearchFunc(string query)
     {
         return await ProfileSvc.GetProfiles(query, limit: 5);
     }

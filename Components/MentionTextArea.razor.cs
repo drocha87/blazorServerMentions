@@ -44,7 +44,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     [Parameter] public string? Placeholder { get; set; }
     [Parameter] public int DebounceTimer { get; set; } = 500;
     [Parameter] public int MaxSuggestions { get; set; } = 5;
-    [Parameter] public Func<string, Task<List<T>?>> SearchFunc { get; set; } = null!;
+    [Parameter] public Func<string, Task<IEnumerable<T>?>> SearchFunc { get; set; } = null!;
 
     [Parameter] public RenderFragment<T>? SuggestionContentItem { get; set; }
 
@@ -67,7 +67,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         }
     }
 
-    private List<T>? _suggestions;
+    private IEnumerable<T>? _suggestions;
     private object SelectedSuggestionIndex { get; set; } = 0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -153,7 +153,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
             _timer.Elapsed -= OnSearchAsync;
             _timer.Dispose();
             _timer = null;
-            _suggestions?.Clear();
+            _suggestions = null;
         }
     }
 
@@ -205,7 +205,6 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         {
             DisposeTimer();
             _showMentionBox = false;
-            _suggestions?.Clear();
             _suggestions = null;
             SelectedSuggestionIndex = 0;
         }
@@ -244,21 +243,21 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
                             SelectedSuggestionIndex = (int)SelectedSuggestionIndex - 1;
                             if ((int)SelectedSuggestionIndex < 0)
                             {
-                                SelectedSuggestionIndex = _suggestions!.Count - 1;
+                                SelectedSuggestionIndex = _suggestions!.Count() - 1;
                             }
                             return;
 
                         case "ArrowDown":
                             // handle next suggestion
                             SelectedSuggestionIndex = (int)SelectedSuggestionIndex + 1;
-                            if ((int)SelectedSuggestionIndex >= _suggestions!.Count)
+                            if ((int)SelectedSuggestionIndex >= _suggestions!.Count())
                             {
                                 SelectedSuggestionIndex = 0;
                             }
                             return;
 
                         case "Enter":
-                            await OnItemSelected(_suggestions![(int)SelectedSuggestionIndex]);
+                            await OnItemSelected(_suggestions!.ElementAt((int)SelectedSuggestionIndex));
                             return;
 
                         case "Escape":
