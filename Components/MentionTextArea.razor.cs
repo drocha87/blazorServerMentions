@@ -20,14 +20,6 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
 
     private string? _text;
 
-    private class Word
-    {
-        public string Text { get; set; } = null!;
-        public int Caret;
-    }
-
-    private List<Word>? _texts;
-
     [Parameter]
     public string? Text
     {
@@ -36,7 +28,6 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         {
             _text = value;
             TextChanged.InvokeAsync(_text).AndForget();
-            UpdateTexts(_text);
         }
     }
     [Parameter] public EventCallback<string> TextChanged { get; set; }
@@ -48,24 +39,10 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
 
     [Parameter] public RenderFragment<T>? SuggestionContentItem { get; set; }
 
-    private ElementReference? _textarea;
+    private ElementReference? _editor;
     private bool _showMentionBox = false;
-    private int? _mentionBoxWidth;
 
-    private int _caretPosition = 0;
-    private int _currentWordIndex = 0;
-
-    private string CurrentWord
-    {
-        get
-        {
-            if (_texts is not null && _currentWordIndex < _texts.Count)
-            {
-                return _texts[_currentWordIndex].Text;
-            }
-            return "";
-        }
-    }
+    private string? CurrentWord { get; set; }
 
     private IEnumerable<T>? _suggestions;
     private object SelectedSuggestionIndex { get; set; } = 0;
@@ -74,64 +51,8 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("initializeMentionBox", _textarea);
-            _mentionBoxWidth = await JS.InvokeAsync<int>("getElementWidthById", "_mentionBoxContainer");
-        }
-    }
-
-    protected override void OnParametersSet()
-    {
-        _texts = new();
-        _currentWordIndex = 0;
-    }
-
-    private void UpdateTexts(string? text)
-    {
-        if (text is not null)
-        {
-            var caret = 0;
-            _texts = new();
-
-            // FIXME: for some reason if I have an empty space followed by a new line
-            // I'll have an additional string with length 0. It should not happen, I think
-            // the problem is with the regex I'm using to split the text.
-            string[] parts = Regex.Split(text, @"([.,;\s])");
-            foreach (var part in parts)
-            {
-                if (part.Length > 0)
-                {
-                    _texts.Add(new() { Text = part, Caret = caret });
-                }
-                caret += part.Length;
-            }
-        }
-    }
-
-    private int CaretPositionToWordIndex(int caret)
-    {
-        int index = 0;
-        if (_texts is not null)
-        {
-            int acc = 0;
-            foreach (var (txt, i) in _texts.Select((txt, i) => (txt, i)))
-            {
-                index = i;
-                acc += txt.Text.Length;
-                if (acc >= caret)
-                {
-                    break;
-                }
-            }
-        }
-        return index;
-    }
-
-    private async Task UpdateCaretPosition()
-    {
-        if (_textarea is not null)
-        {
-            _caretPosition = await JS.InvokeAsync<int>("getElementCaretPosition", _textarea);
-            _currentWordIndex = CaretPositionToWordIndex(_caretPosition);
+            var reference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("mentionEditor.initialize", reference);
         }
     }
 
@@ -147,7 +68,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
 
     private void DisposeTimer()
     {
-        if (_timer != null)
+        if (_timer is not null)
         {
             _timer.Enabled = false;
             _timer.Elapsed -= OnSearchAsync;
@@ -169,34 +90,8 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
 
     public async Task OnItemSelected(T item)
     {
-        if (_texts is not null)
-        {
-            var username = "@" + item.Username!;
-            var word = _texts[_currentWordIndex];
-
-            _texts[_currentWordIndex] = new() { Text = username, Caret = word.Caret };
-
-            var completionLength = username.Length - word.Text.Length;
-            var cursor = word.Caret + username.Length;
-
-            var text = "";
-            foreach (var w in _texts)
-            {
-                text += w.Text;
-            }
-
-            await JS.InvokeVoidAsync("updateMentionBoxText", _textarea, text, cursor);
-            ResetMentions();
-
-            // XXX: as we are adding text from the suggestion we should recalculate all words caret index
-            foreach (var w in _texts.Skip(_currentWordIndex + 1))
-            {
-                w.Caret += completionLength;
-            }
-
-            // update caret position after the suggestion been added
-            _caretPosition = cursor;
-        }
+        await JS.InvokeVoidAsync("mentionEditor.insertMentionAtHighlighted", _editor, item.Username!);
+        ResetMentions();
     }
 
     private void ResetMentions()
@@ -207,80 +102,141 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
             _showMentionBox = false;
             _suggestions = null;
             SelectedSuggestionIndex = 0;
+            CurrentWord = null;
         }
     }
 
-    private async Task OpenMentionBox()
+    private void OpenMentionBox()
     {
-        _mentionBoxWidth = await JS.InvokeAsync<int>("getElementWidthById", "_mentionBoxContainer");
-        _showMentionBox = true;
-        _suggestions = null;
-    }
-
-    private async Task ShouldOpenMentionBox()
-    {
-        if (!string.IsNullOrEmpty(CurrentWord) && CurrentWord[0] == '@' && !_showMentionBox)
+        if (!_showMentionBox)
         {
-            await OpenMentionBox();
-            return;
+            _showMentionBox = true;
+            _suggestions = null;
         }
-        ResetMentions();
     }
 
     private async Task CheckKey(KeyboardEventArgs ev)
     {
-        try
+        if (_showMentionBox)
         {
-            if (_textarea is not null)
+            // handle keys if mention box is opened
+            switch (ev.Key)
             {
-                if (_showMentionBox)
-                {
-                    // handle keys if mention box is opened
-                    switch (ev.Key)
+                case "ArrowUp":
+                    // handle next suggestion
+                    SelectedSuggestionIndex = (int)SelectedSuggestionIndex - 1;
+                    if ((int)SelectedSuggestionIndex < 0)
                     {
-                        case "ArrowUp":
-                            // handle next suggestion
-                            SelectedSuggestionIndex = (int)SelectedSuggestionIndex - 1;
-                            if ((int)SelectedSuggestionIndex < 0)
-                            {
-                                SelectedSuggestionIndex = _suggestions!.Count() - 1;
-                            }
-                            return;
-
-                        case "ArrowDown":
-                            // handle next suggestion
-                            SelectedSuggestionIndex = (int)SelectedSuggestionIndex + 1;
-                            if ((int)SelectedSuggestionIndex >= _suggestions!.Count())
-                            {
-                                SelectedSuggestionIndex = 0;
-                            }
-                            return;
-
-                        case "Enter":
-                            await OnItemSelected(_suggestions!.ElementAt((int)SelectedSuggestionIndex));
-                            return;
-
-                        case "Escape":
-                            ResetMentions();
-                            return;
+                        SelectedSuggestionIndex = _suggestions!.Count() - 1;
                     }
-                }
+                    return;
 
-                await UpdateCaretPosition();
-                DisposeTimer();
+                case "ArrowDown":
+                    // handle next suggestion
+                    SelectedSuggestionIndex = (int)SelectedSuggestionIndex + 1;
+                    if ((int)SelectedSuggestionIndex >= _suggestions!.Count())
+                    {
+                        SelectedSuggestionIndex = 0;
+                    }
+                    return;
 
-                await ShouldOpenMentionBox();
-                if (_showMentionBox)
+                case "Enter":
+                    await OnItemSelected(_suggestions!.ElementAt((int)SelectedSuggestionIndex));
+                    return;
+
+                case "Escape":
+                    ResetMentions();
+                    return;
+            }
+        }
+    }
+
+    public class Token
+    {
+        public TokenType Type { get; set; } = TokenType.Text;
+        public string Value { get; set; } = null!;
+    }
+
+    public enum TokenType
+    {
+        Mention,
+        Text,
+    }
+
+    private static List<Token> ParseLine(string? text)
+    {
+        List<Token> tokens = new();
+        if (text is not null)
+        {
+            // FIXME: for some reason if I have an empty space followed by a new line
+            // I'll have an additional string with length 0. It should not happen, I think
+            // the problem is with the regex I'm using to split the text.
+            string[] parts = Regex.Split(text, @"([.,;\s])");
+            foreach (var part in parts)
+            {
+                if (part.Length > 0)
                 {
-                    // only if the mention box is opened we reset/start the timer
-                    StartTimer();
+                    tokens.Add(new()
+                    {
+                        Type = part switch
+                        {
+                            var x when x.StartsWith("@") => TokenType.Mention,
+                            _ => TokenType.Text,
+                        },
+                        Value = part
+                    });
                 }
             }
         }
-        catch (JSException e)
+        return tokens;
+    }
+
+    public class ElementTextContent
+    {
+        public string? Content { get; set; }
+        public int Row { get; set; }
+        public int Col { get; set; }
+    }
+
+    [JSInvokable]
+    public async Task UpdateEditorContent(ElementTextContent content)
+    {
+        if (_editor is not null && content.Content is not null)
         {
-            await JS.InvokeVoidAsync("alert", e.Message);
+            var tokens = ParseLine(content.Content);
+            await JS.InvokeVoidAsync("mentionEditor.updateEditor", tokens, content.Row, content.Col);
         }
+    }
+
+    public class MentionPopover
+    {
+        public string? Username { get; set; }
+        public double Top { get; set; }
+        public double Left { get; set; }
+    }
+
+    // TODO: implement the popover on mouse hover
+    [JSInvokable]
+    public async Task PopoverMentionInfo(MentionPopover p)
+    {
+        // Console.WriteLine($"username: {p.Username}, top: {p.Top}, left: {p.Left}");
+    }
+
+    [JSInvokable]
+    public async Task OnMention(string word)
+    {
+        CurrentWord = word;
+        var isMentionBoxOpened = _showMentionBox;
+        OpenMentionBox();
+        StartTimer();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnCloseMentionPopover()
+    {
+        ResetMentions();
+        await InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()

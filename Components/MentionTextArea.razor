@@ -2,104 +2,61 @@
 
 <MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
 
-<MudStack Row AlignItems="AlignItems.Start">
-    <div id="_mentionBoxContainer" class="flex-grow-1">
-        @if (_showMentionBox && _mentionBoxWidth is not null)
-        {
-                <MudPopover
-                    Class="_mentionBoxPopover"
-                    Style="@($"width: {_mentionBoxWidth}px;")"
-                    Open="true"
-                    OverflowBehavior="OverflowBehavior.FlipAlways"
-                    AnchorOrigin="Origin.TopLeft"
-                    TransformOrigin="Origin.BottomLeft">
+<div class="absolute" id="editor-popover-container">
+    <MudPopover
+        Class="_mentionBoxPopover"
+        Open="@_showMentionBox"
+        OverflowBehavior="OverflowBehavior.FlipAlways"
+        AnchorOrigin="Origin.TopLeft"
+        TransformOrigin="Origin.BottomLeft">
 
-                <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
-                    <MudListSubheader>
-                        Members
-                    </MudListSubheader>
-                    <MudDivider />
+        <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
+            <MudListSubheader>
+                Members
+            </MudListSubheader>
+            <MudDivider />
 
-                    @if (_suggestions is not null)
+            @if (_suggestions is not null)
+            {
+                @if (_suggestions.Count() == 0)
+                {
+                    <MudListItem>
+                        <MudText Typo="Typo.subtitle2">
+                            Member with username <b>@(CurrentWord[1..])</b> not found.
+                        </MudText>
+                    </MudListItem>
+                }
+                else
+                {
+                    @foreach (var (item, index) in _suggestions.Select((item, index) => (item, index)))
                     {
-                        @if (_suggestions.Count() == 0)
-                        {
-                            <MudListItem>
-                                <MudText Typo="Typo.subtitle2">
-                                    Member with username <b>@(CurrentWord[1..])</b> not found.
-                                </MudText>
-                            </MudListItem>
-                        }
-                        else
-                        {
-                            @foreach (var (item, index) in _suggestions.Select((item, index) => (item, index)))
+                        <MudListItem Value="@index" OnClick="@(() => OnItemSelected(item))">
+                            @if (SuggestionContentItem is not null)
                             {
-                                <MudListItem Value="@index" OnClick="@(() => OnItemSelected(item))">
-                                    @if (SuggestionContentItem is not null)
-                                    {
-                                        @SuggestionContentItem(item)
-                                    }
-                                    else
-                                    {
-                                        <span>@item.Username</span>
-                                    }
-                                </MudListItem>
-                            }
-                        }
-                    }
-                    else
-                    {
-                        <MudListItem>
-                            <MudText Typo="Typo.subtitle2">
-                                Type at least one letter to start the search
-                            </MudText>
-                        </MudListItem>
-                    }
-
-                    @* TODO: add a footer *@
-                </MudList>
-            </MudPopover>
-        }
-
-        <div class="mention-main-container">
-            <div id="fake-container" class="relative">
-                <textarea @ref="_textarea"
-                          @bind-value="Text"
-                          @bind-value:event="oninput"
-                          class="mention-textarea mention-typo"
-                          @onclick="UpdateCaretPosition"
-                          @onkeydown="CheckKey">
-                </textarea>
-
-                <div class="fake-textarea mention-typo">
-                    @if (_texts is not null)
-                    {
-                        @foreach (var (t, i) in _texts.Select((t, i) => (t.Text, i)))
-                        {
-                            @if (t.StartsWith('@'))
-                            {
-                                <span class="rounded highlight-mention">
-                                    @t
-                                </span>
-                            }
-                            else if (t.Equals("\n"))
-                            {
-                                <br>
-                            }
-                            else if (i == _currentWordIndex)
-                            {
-                                <span class="rounded highlight">
-                                    @t
-                                </span>
+                                @SuggestionContentItem(item)
                             }
                             else
                             {
-                                <span>@t</span>
+                                <span>@item.Username</span>
                             }
-                        }
+                        </MudListItem>
                     }
-                </div>
-            </div>
-        </div>
-    </div>
-</MudStack>
+                }
+            }
+            else
+            {
+                <MudListItem>
+                    <MudText Typo="Typo.subtitle2">
+                        Type at least one letter to start the search
+                    </MudText>
+                </MudListItem>
+            }
+
+            @* TODO: add a footer *@
+        </MudList>
+    </MudPopover>
+</div>
+
+<div @ref="_editor" contentEditable data-editor="true" @onkeydown="CheckKey" class="editor editor-typo">
+    <div data-line="true"><br></div>
+</div>
