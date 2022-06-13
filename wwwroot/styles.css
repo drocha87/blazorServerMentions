@@ -1,18 +1,23 @@
-.highlight {
-  background-color: #ffbe0b;
+span[data-mention="true"] {
+  background-color: #bde0fe !important;
 }
 
-.mention {
-  background-color: #bde0fe;
-  cursor: pointer;
-  padding: 0 3px;
-  border-radius: 3px;
+div[data-line="true"] {
+  padding: 0 10px;
+  border: 2px solid transparent;
+  line-height: calc(1rem + 6px);
 }
 
-.line {
+span[data-word="true"] {
+  /* line-height: calc(1rem - 2px); */
+  /* border: 1px solid transparent; */
+}
+
+span[data-highlight="true"] {
+  background-color: #e5e5e5;
+  /* border-color: rgb(88, 88, 88, .2) !important; */
 }
 
 .highlight-line {
-  background-color: red;
-  border-radius: 5px;
+  border-color: #e5e5e5 !important;
 }

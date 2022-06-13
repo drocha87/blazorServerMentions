@@ -8,15 +8,13 @@ class Editor {
   dotnetReference = null;
   content = null;
   popoverContent = null;
-  editorCurrentLine = null;
-  highlightedMention = null;
+  mutationObserver = null;
+  selection = null;
 
-  // save the last highlight avoid us to traverse the entire editor nodes
-  // checking and removing the `highlight` class
+  highlightedMention = null;
   lastHighlightedWord = null;
   lastHighlightedLine = null;
-
-  currentCaretLocation = {row: 1, col: 1, isCollapsed: false};
+  currentCaretLocation = { row: 0, col: 0, isCollapsed: false };
 
   constructor() {
     if (typeof window.getSelection === "undefined") {
@@ -27,11 +25,21 @@ class Editor {
     }
   }
 
+  // this method will be called when the component is disposed (called in C#)
+  dispose() {
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+    }
+  }
+
   initialize(reference) {
     this.dotnetReference = reference;
 
     this.content = document.getElementsByClassName("editor")[0];
+    // start the editor with an empty line
+    this.appendNewLineEditor();
 
+    this.initializeMutationObserver();
     this.initializeMentionPopover();
 
     // XXX: if we don't filter this event we'll send at least two input events with the same data
@@ -46,16 +54,27 @@ class Editor {
       }
     });
 
-    this.content.addEventListener("keyup", (ev) => {
-      // if (ev.key.length > 1) {
-      // as we highlight the word right after the input event, we should not trigger it here again.
-      // so to avoid it (not 100%) but effectively we dispatch `highlightWordUnderCaret` only when
-      // the key was supposed to not generate an input event
-      this.updateInterface();
-      // }
+    // this is how we update the interface. We look if the selectionchange and only if
+    // it happened inside our component we dispatch a updateInterface().
+    document.addEventListener("selectionchange", async (ev) => {
+      if (ev.target.activeElement === this.content) {
+        this.selection = document.getSelection();
+        // this.currentCaretLocation = this.getEditorCaretLocation(this.selection);
+        await this.updateInterface();
+      }
     });
 
     this.content.addEventListener("keydown", (ev) => {
+      if (this.isContentEmpty()) {
+        // to keep the editor with at least one line we must disable backspace when the
+        // content is empty
+        if (ev.key === "Backspace") {
+          ev.preventDefault();
+          return;
+        }
+      }
+
+      // this.updateInterface();
       // these keybings will be handled in C#
       if (this.isMentionPopoverOpen) {
         switch (ev.key) {
@@ -69,77 +88,142 @@ class Editor {
       }
     });
 
-    this.content.addEventListener("click", (ev) => {
-      this.updateInterface();
+    this.content.addEventListener("click", async (ev) => {
+      await this.updateInterface();
+    });
+
+    this.content.addEventListener("blur", (ev) => {
+      this.clearHighlightedWord();
+    });
+
+    this.content.addEventListener("focus", async (ev) => {
+      // this.restoreContentFocus();
+      await this.updateInterface();
     });
   }
 
-  updateInterface() {
-    this.currentCaretLocation = this.getEditorCaretLocation();
+  initializeMutationObserver() {
+    const config = {
+      attributes: true,
+      childList: true,
+      characterData: false,
+      subtree: true,
+    };
 
-    this.highlightCurrentLine();
-    this.highlightWordUnderCaret();
+    const callback = function (mutationList, observer) {
+      for (const mutation of mutationList) {
+        if (mutation.type === "attributes") {
+          if (mutation.attributeName === "data-mention") {
+            console.log(mutation.attributeName);
+          }
+        }
+      }
+    };
+
+    this.mutationObserver = new MutationObserver(callback);
+    this.mutationObserver.observe(this.content, config);
   }
 
-  anchorNodeToElement(node) {
+  async updateInterface() {
+    this.currentCaretLocation = this.getEditorCaretLocation();
+    if (this.currentCaretLocation) {
+      this.clearHighlightedWord();
+      this.highlightCurrentLine();
+      await this.highlightWordUnderCaret();
+    }
+  }
+
+  restoreContentFocus() {
+    // TODO: set the caret back to previous position
+    const range = new Range();
+    range.selectNode(this.content.firstChild);
+    range.collapse();
+
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  isLineEmpty(line) {
+    const words = line.querySelectorAll(`[data-word="true"]`);
+    // the word has two possible values:
+    // 1: a text
+    // 2: a <br>
+    // in case of a text `firstElementChild` IS NULL so we know that the
+    // line is not empty
+    return words.length <= 0 || words[0].firstElementChild !== null;
+  }
+
+  isContentEmpty() {
+    const lines = this.content.querySelectorAll(`[data-line="true"]`);
+    if (lines.length > 1) {
+      return false;
+    }
+    return this.isLineEmpty(lines[0]);
+  }
+
+  nodeIsInContent(node) {
+    if (node) {
+      const el = this.nodeToElement(node);
+      if (el && (el.dataset.word || el.dataset.line)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  nodeToElement(node) {
     if (node instanceof Element) {
       return node;
     }
-    return node && this.anchorNodeToElement(node.parentNode);
+    return node && this.nodeToElement(node.parentNode);
   }
 
-  anchorNodeToLine(node) {
-    let line = this.anchorNodeToElement(node);
-    if (line.hasAttribute("data-line")) {
-      return line;
+  nodeToLine(node) {
+    let el = this.nodeToElement(node);
+    if (el.dataset.line) {
+      return el;
     }
-    if (line.hasAttribute("data-editor")) {
-      // FIXME: if we backspace in an empty line this state is reachable
-      // this line do not exist in editor
-      throw new Error("line do not exists in editor");
+    if (el.dataset.word) {
+      return this.nodeToLine(el.parentElement);
     }
-    return this.anchorNodeToLine(line.parentElement);
+    return null;
   }
 
   appendNewLineEditor() {
     const line = document.createElement("div");
     const br = document.createElement("br");
-
     line.appendChild(br);
     line.setAttribute("data-line", true);
     line.classList.add("line");
-
     this.content.appendChild(line);
-
     return line;
   }
 
   getLineAt(row) {
-    //filter only valid lines
-    const lines = [...this.content.children].filter((n) =>
-      n.hasAttribute("data-line")
-    );
-    if (lines.length === 0) {
-      // the editor has no lines, so we should create one empty line and return it
-      return this.appendNewLineEditor();
+    if (row > this.content.length) {
+      row = 0;
     }
-    return lines[row - 1];
+    return this.content.children[row];
   }
 
+  // This text editor has a line which is defined as following:
+  //     <div data-line="true"> ...<span data-word="true"></span> </div>
+  // But the column is an index as if the line was composed only by text.
+  // So this helper function will calculate the `index` which is the index in the
+  // line children and an `offset` the character position in the child (element at index)
   getWordIndexAndOffset(line, offset) {
-    let index = 0;
-    // XXX: we are indexing both line and col starting with 1 but here we must index it based on 0
-    offset -= 1;
-    for (let word of line.children) {
+    for (let [index, word] of [...line.children].entries()) {
       const len = word.innerText.length;
       if (len >= offset) {
-        break;
+        return { index, offset };
       }
-      index += 1;
       offset -= len;
     }
-
-    return { index, offset };
+    // FIXME: sometimes I reach this state, which should never happen!
+    throw new Error(
+      `offset ${offset} is not present in line ${line?.innerText}`
+    );
   }
 
   getWordInLine(line, col) {
@@ -152,39 +236,47 @@ class Editor {
     return this.getWordInLine(line, col);
   }
 
-  getEditorCaretLocation() {
-    const selection = window.getSelection();
-    let line = selection.anchorNode;
-
-    let row = 1;
-    let col = 1;
-
-    if (line !== this.content) {
-      line = this.anchorNodeToLine(line);
-      row = Array.prototype.indexOf.call(this.content.children, line) + 1;
-
-      const range = selection.getRangeAt(0);
-      const clone = range.cloneRange();
-
-      // basically select the entire line
-      clone.selectNodeContents(line);
-      // then reduce the selection to the mark at end
-      clone.setEnd(range.endContainer, range.endOffset);
-      // now counting the length of the selected string will result in the caret position
-      // we increment it by 1 because we are indexing lines and columns by one
-      col = clone.toString().length + 1;
-    }
-
-    return { row, col, isCollapsed: selection.isCollapsed };
+  getCaretIndexInContent(selection) {
+    let node = selection.anchorNode;
+    let line = this.nodeToLine(node);
+    return Array.prototype.indexOf.call(this.content.children, line);
   }
 
-  setEditorCaretLocation(row, col) {
-    const range = new Range();
-    const selection = window.getSelection();
+  getCaretOffsetInLine(line, selection) {
+    const range = selection.getRangeAt(0);
+    const clone = range.cloneRange();
+    // basically select the entire line
+    clone.selectNodeContents(line);
+    // then reduce the selection to the mark at end
+    clone.setEnd(range.endContainer, range.endOffset);
+    // now counting the length of the selected string will result in the caret position
+    return clone.toString().length;
+  }
 
-    const line = this.getLineAt(row);
-    const { offset } = this.getWordIndexAndOffset(line, col);
-    const word = this.getWordAt(row, col);
+  // this function try to get the caret location in the editor content.
+  // if it succeed it returns the row and col (indexed by 1) otherwise it
+  // return `null`
+  getEditorCaretLocation() {
+    if (this.selection) {
+      const selection = this.selection; // window.getSelection();
+      let row = this.getCaretIndexInContent(selection);
+
+      if (row >= 0) {
+        let line = this.nodeToLine(selection.anchorNode);
+        let col = this.getCaretOffsetInLine(line, selection);
+
+        return { row, col, isCollapsed: selection.isCollapsed };
+      }
+    }
+    return null;
+  }
+
+  setCaretInLine(line, col) {
+    const selection = window.getSelection();
+    const range = new Range();
+
+    const { index, offset } = this.getWordIndexAndOffset(line, col);
+    const word = line.children[index];
 
     range.setStart(word.firstChild, offset);
     range.collapse(true);
@@ -193,25 +285,108 @@ class Editor {
     selection.addRange(range);
   }
 
-  async emitEditorUpdate() {
-    this.currentCaretLocation = this.getEditorCaretLocation();
+  setEditorCaretLocation(line, row, col) {
+    const range = new Range();
+    const selection = window.getSelection();
 
-    const { row, col, isCollapsed } = this.currentCaretLocation;
+    const { index, offset } = this.getWordIndexAndOffset(line, col);
+    const word = line.children[index];
 
-    // do not try to update editor if caret is a selection
-    if (isCollapsed) {
-      const line = this.getLineAt(row);
-      if (line) {
+    range.setStart(word.firstChild, offset);
+    range.collapse(true);
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    this.currentCaretLocation = { row, col, isCollapsed: true };
+  }
+
+  async emitEditorUpdate(event) {
+    let line = null;
+    if (this.isContentEmpty()) {
+      line = this.content.firstElementChild;
+      if (line?.childElementCount > 0) {
         const content = line.innerText;
-        if (content?.length > 0 && content !== "\n") {
-          await this.dotnetReference.invokeMethodAsync("UpdateEditorContent", {
-            content,
-            row,
-            col,
-          });
-        }
+
+        const span = document.createElement("span");
+        span.setAttribute("data-word", "true");
+        span.innerText = content;
+
+        line.replaceChild(span, line.firstChild);
+      }
+    } else {
+      line = this.nodeToLine(this.selection.anchorNode);
+    }
+
+    if (line) {
+      let offset = this.getCaretOffsetInLine(line, this.selection);
+      const content = line.innerText;
+
+      if (content?.length > 0 && content !== "\n") {
+        const tokens = await this.dotnetReference.invokeMethodAsync(
+          "UpdateEditorContent",
+          content
+        );
+        line = this.updateLine(line, tokens);
+        this.setCaretInLine(line, offset);
       }
     }
+  }
+
+  createTextNodeFromToken(token) {
+    const el = document.createElement("span");
+    el.innerText = token.value;
+    el.setAttribute("data-word", "true");
+
+    switch (token.type) {
+      case TokenType.Mention: {
+        el.setAttribute("data-mention", "true");
+        break;
+      }
+
+      default:
+        break;
+    }
+    return el;
+  }
+
+  updateLine(line, tokens) {
+    if (line?.children.length === 0) {
+      let newLine = document.createElement("div");
+      newLine.setAttribute("data-line", "true");
+      // we are in an empty line
+      for (let token of tokens) {
+        const el = this.createTextNodeFromToken(token);
+        newLine.appendChild(el);
+      }
+      this.content.replaceChild(newLine, line);
+      return newLine;
+    }
+
+    const wordsInLine = line.children.length;
+
+    for (let [index, token] of tokens.entries()) {
+      const node = line.children[index];
+      const el = this.createTextNodeFromToken(token);
+
+      if (node === undefined) {
+        line.appendChild(el);
+        continue;
+      }
+
+      if (!node.isEqualNode(el)) {
+        line.replaceChild(el, node);
+        continue;
+      }
+    }
+
+    if (tokens.length < wordsInLine) {
+      for (let node of [...line.children].slice(tokens.length)) {
+        node.remove();
+      }
+    }
+
+    return line;
   }
 
   clearEditor() {
@@ -220,11 +395,7 @@ class Editor {
     }
   }
 
-  get isMentionPopoverOpen() {
-    return this.popoverContent.classList.contains("mud-popover-open");
-  }
-
-  insertMentionAtHighlighted(username) {
+  async insertMentionAtHighlighted(username) {
     if (this.highlightedMention) {
       this.highlightedMention.innerText = "@" + username;
 
@@ -237,88 +408,40 @@ class Editor {
       selection.removeAllRanges();
       selection.addRange(range);
 
-      this.emitEditorUpdate();
+      await this.emitEditorUpdate();
     }
   }
 
   highlightCurrentLine() {
-    // const { row } = this.getEditorCaretLocation();
-    // const line = this.getLineAt(row);
-    // if (line !== this.lastHighlightedLine) {
-    //   if (this.lastHighlightedLine) {
-    //     this.lastHighlightedLine.style.backgroundColor = "white";
-    //   }
-    //   line.style.backgroundColor = "red";
-    //   this.lastHighlightedLine = line;
-    // }
-  }
-
-  highlightWordUnderCaret() {
-    const { row, col, isCollapsed } = this.currentCaretLocation;
-
-    // do not try to highlight word is selection is not collapsed
-    if (isCollapsed) {
-      if (this.lastHighlightedWord) {
-        this.lastHighlightedWord.classList.remove("highlight");
-      }
-
-      const word = this.getWordAt(row, col);
-      if (word.hasAttribute("data-mention")) {
-        this.dotnetReference.invokeMethodAsync("OnMention", word.innerText);
-        this.highlightedMention = word;
-        return;
-      }
-
-      if (this.isMentionPopoverOpen) {
-        this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
-      }
-
-      if (
-        word?.hasAttribute("data-word") &&
-        !word.classList.contains("highlight")
-      ) {
-        this.lastHighlightedWord = word;
-        word.classList.add("highlight");
-      }
+    const line = this.getLineAt(this.currentCaretLocation.row);
+    if (line) {
+      this.lastHighlightedLine?.classList.remove("highlight-line");
+      line.classList.add("highlight-line");
+      this.lastHighlightedLine = line;
     }
   }
 
-  updateEditor(tokens, row, col) {
-    let line = document.createElement("div");
-    line.setAttribute("data-line", true);
+  clearHighlightedWord() {
+    if (this.lastHighlightedWord) {
+      this.lastHighlightedWord.removeAttribute("data-highlight");
+    }
+  }
 
-    for (let token of tokens) {
-      const el = document.createElement("span");
-      el.innerText = token.value;
-
-      switch (token.type) {
-        case TokenType.Mention: {
-          el.setAttribute("data-mention", true);
-          el.classList.add("mention");
-
-          el.addEventListener("mouseenter", (ev) => {
-            const rect = el.getBoundingClientRect();
-            this.dotnetReference.invokeMethodAsync("PopoverMentionInfo", {
-              username: token.value,
-              top: rect.top,
-              left: rect.left,
-            });
-          });
-          break;
+  async highlightWordUnderCaret() {
+    if (!this.isContentEmpty()) {
+      const { row, col, isCollapsed } = this.currentCaretLocation;
+      if (isCollapsed) {
+        const word = this.getWordAt(row, col);
+        if (word?.hasAttribute("data-word")) {
+          this.lastHighlightedWord = word;
+          word.setAttribute("data-highlight", "true");
         }
-
-        default:
-          el.setAttribute("data-word", true);
-          break;
       }
-      line.appendChild(el);
     }
+  }
 
-    let oldLine = this.getLineAt(row);
-    this.content.replaceChild(line, oldLine);
-    this.setEditorCaretLocation(row, col);
-    this.highlightWordUnderCaret();
-    // highlightCurrentLine(editor);
+  get isMentionPopoverOpen() {
+    return this.popoverContent.classList.contains("mud-popover-open");
   }
 
   initializeMentionPopover() {
@@ -370,26 +493,6 @@ class Editor {
       this.popoverContent.style.left = left + offsetX + "px";
       this.popoverContent.style.top = top + offsetY + "px";
     }
-  }
-
-  getCaretCoordinates() {
-    let x = 0,
-      y = 0;
-    const isSupported = typeof window.getSelection !== "undefined";
-    if (isSupported) {
-      const selection = window.getSelection();
-      if (selection.rangeCount !== 0) {
-        const range = selection.getRangeAt(0).cloneRange();
-        // Collapse the range to the start, so there are not multiple chars selected
-        range.collapse(true);
-        const rect = range.getClientRects()[0];
-        if (rect) {
-          x = rect.left; // since the caret is only 1px wide, left == right
-          y = rect.top; // top edge of the caret
-        }
-      }
-    }
-    return { x, y };
   }
 }
 

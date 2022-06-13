@@ -70,8 +70,8 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     {
         if (_timer is not null)
         {
-            _timer.Enabled = false;
-            _timer.Elapsed -= OnSearchAsync;
+            // _timer.Enabled = false;
+            // _timer.Elapsed -= OnSearchAsync;
             _timer.Dispose();
             _timer = null;
             _suggestions = null;
@@ -90,19 +90,24 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
 
     public async Task OnItemSelected(T item)
     {
-        await JS.InvokeVoidAsync("mentionEditor.insertMentionAtHighlighted", _editor, item.Username!);
-        ResetMentions();
+        await JS.InvokeVoidAsync("mentionEditor.insertMentionAtHighlighted", item.Username!);
+        await ResetMentions();
     }
 
-    private void ResetMentions()
+    private async Task ResetMentions()
     {
         if (_showMentionBox)
         {
+            Console.WriteLine("closing mentions");
             DisposeTimer();
             _showMentionBox = false;
             _suggestions = null;
             SelectedSuggestionIndex = 0;
             CurrentWord = null;
+            // FIXME: whitout this task.delay the has state is not change and the mention box
+            // do not close
+            await Task.Delay(10);
+            // await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -145,7 +150,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
                     return;
 
                 case "Escape":
-                    ResetMentions();
+                    await ResetMentions();
                     return;
             }
         }
@@ -199,13 +204,14 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     }
 
     [JSInvokable]
-    public async Task UpdateEditorContent(ElementTextContent content)
+    public Task<List<Token>> UpdateEditorContent(string content)
     {
-        if (_editor is not null && content.Content is not null)
+        if (_editor is not null)
         {
-            var tokens = ParseLine(content.Content);
-            await JS.InvokeVoidAsync("mentionEditor.updateEditor", tokens, content.Row, content.Col);
+            return Task.FromResult(ParseLine(content));
+            // await JS.InvokeVoidAsync("mentionEditor.updateEditor", tokens, content.Row, content.Col);
         }
+        return Task.FromResult<List<Token>>(new());
     }
 
     public class MentionPopover
@@ -235,7 +241,8 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     [JSInvokable]
     public async Task OnCloseMentionPopover()
     {
-        ResetMentions();
+        Console.WriteLine("OnCloseMentionPopover");
+        await ResetMentions();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -244,4 +251,5 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         DisposeTimer();
         GC.SuppressFinalize(this);
     }
+
 }

@@ -4,7 +4,6 @@
 
 <div class="absolute" id="editor-popover-container">
     <MudPopover
-        Class="_mentionBoxPopover"
         Open="@_showMentionBox"
         OverflowBehavior="OverflowBehavior.FlipAlways"
         AnchorOrigin="Origin.TopLeft"
@@ -58,5 +57,4 @@
 </div>
 
 <div @ref="_editor" contentEditable data-editor="true" @onkeydown="CheckKey" class="editor editor-typo">
-    <div data-line="true"><br></div>
 </div>
