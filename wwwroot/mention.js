@@ -351,7 +351,7 @@ class Editor {
         // FIXME: if line is empty and the last word in previous line is a mention
         // for some reason the new node create here will contain a data attribute `mention`
         // so we must clean it to close the popover.
-        line.firstElementChild.removeAttribute("data-mention");
+        line.firstElementChild?.removeAttribute("data-mention");
       }
     }
 
