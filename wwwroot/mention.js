@@ -97,7 +97,6 @@ class Editor {
     });
 
     this.content.addEventListener("focus", async (ev) => {
-      // this.restoreContentFocus();
       await this.updateInterface();
     });
   }
@@ -153,17 +152,6 @@ class Editor {
         await this.dotnetReference.invokeMethodAsync("OnUpdateStats", row+1, col+1);
       }
     }
-  }
-
-  restoreContentFocus() {
-    // TODO: set the caret back to previous position
-    const range = new Range();
-    range.selectNode(this.content.firstChild);
-    range.collapse();
-
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
   }
 
   isLineEmpty(line) {
