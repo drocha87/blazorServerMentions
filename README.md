@@ -1,10 +1,20 @@
 # Blazor Mentions
 
-![Screencast](./Screencast.gif)
+https://user-images.githubusercontent.com/31552590/173620006-d1f24986-641a-45a1-8d79-02c0975ebf54.mp4
 
-This is a basic implementation of a mention system using [MudBlazor](https://mudblazor.com/).
+**This repository is an experiment in creating a component to manage completions, 
+this is not ready to use**
 
-This system is able to highlight the current word (just for demonstration purpose).
+This is an attempt to implement a powerfull yet simple component to handle mentions 
+and other completions, it's implemented using [MudBlazor](https://mudblazor.com/) 
+and a content editable.
+
+- [ ] Reduce the javascript size
+- [ ] Support others characters to open the popover
+- [x] Get the editor content as a string
+- [ ] Get the editor content as a tree of tokens
+- [ ] Show a tooltip when the mouse is over a `mention`
+- [ ] Enable a list of regex to highlight matching words
 
 ## Quick Start
 
