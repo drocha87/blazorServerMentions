@@ -132,7 +132,7 @@ class Editor {
       const { row, col, isCollapsed } = this.currentCaretLocation;
 
       if (this.isContentEmpty()) {
-        await this.dotnetReference.invokeMethodAsync("OnUpdateStats", "", 1, 1);
+        await this.dotnetReference.invokeMethodAsync("OnUpdateStats", 1, 1);
         return;
       }
 
@@ -150,7 +150,7 @@ class Editor {
         }
 
         this.highlightCurrentLine();
-        await this.dotnetReference.invokeMethodAsync("OnUpdateStats", word.innerText, row+1, col+1);
+        await this.dotnetReference.invokeMethodAsync("OnUpdateStats", row+1, col+1);
       }
     }
   }
@@ -355,7 +355,7 @@ class Editor {
 
       if (content?.length > 0 && content !== "\n") {
         const tokens = await this.dotnetReference.invokeMethodAsync(
-          "UpdateEditorContent",
+          "ParseLine",
           content
         );
         line = this.updateLine(line, tokens);

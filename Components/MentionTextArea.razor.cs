@@ -13,6 +13,14 @@ public interface IMentionItem
     string Username { get; set; }
 }
 
+
+public class ElementTextContent
+{
+    public string? Content { get; set; }
+    public int Row { get; set; }
+    public int Col { get; set; }
+}
+
 public partial class MentionTextArea<T> : ComponentBase, IDisposable
     where T : IMentionItem
 {
@@ -166,10 +174,11 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         Text,
     }
 
-    private static List<Token> ParseLine(string? text)
+    [JSInvokable]
+    public Task<List<Token>> ParseLine(string? text)
     {
         List<Token> tokens = new();
-        if (text is not null)
+        if (text is not null && _editor is not null)
         {
             // FIXME: for some reason if I have an empty space followed by a new line
             // I'll have an additional string with length 0. It should not happen, I think
@@ -191,25 +200,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
                 }
             }
         }
-        return tokens;
-    }
-
-    public class ElementTextContent
-    {
-        public string? Content { get; set; }
-        public int Row { get; set; }
-        public int Col { get; set; }
-    }
-
-    [JSInvokable]
-    public Task<List<Token>> UpdateEditorContent(string content)
-    {
-        if (_editor is not null)
-        {
-            return Task.FromResult(ParseLine(content));
-            // await JS.InvokeVoidAsync("mentionEditor.updateEditor", tokens, content.Row, content.Col);
-        }
-        return Task.FromResult<List<Token>>(new());
+        return Task.FromResult(tokens);
     }
 
     public class MentionPopover
@@ -231,9 +222,8 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     {
         CurrentWord = word;
         var isMentionBoxOpened = _showMentionBox;
-        OpenMentionBox();
         StartTimer();
-        await InvokeAsync(StateHasChanged);
+        await InvokeAsync(OpenMentionBox);
     }
 
     [JSInvokable]
@@ -242,13 +232,12 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         await InvokeAsync(ResetMentions);
     }
 
-    private string _currentWord = "";
     private int _currentLine = 1;
     private int _currentCol = 1;
+
     [JSInvokable]
-    public async Task OnUpdateStats(string word, int line, int col)
+    public async Task OnUpdateStats(int line, int col)
     {
-        _currentWord = word;
         _currentLine = line;
         _currentCol = col;
         await InvokeAsync(StateHasChanged);
@@ -257,6 +246,7 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     public void Dispose()
     {
         DisposeTimer();
+        JS.InvokeVoidAsync("mentionEditor.dispose").AndForget();
         GC.SuppressFinalize(this);
     }
 
