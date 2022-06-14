@@ -15,6 +15,7 @@ class Editor {
   lastHighlightedWord = null;
   lastHighlightedLine = null;
   currentCaretLocation = { row: 0, col: 0, isCollapsed: false };
+  config = {};
 
   constructor() {
     if (typeof window.getSelection === "undefined") {
@@ -36,10 +37,12 @@ class Editor {
     this.dotnetReference = reference;
 
     this.content = document.getElementsByClassName("editor")[0];
+
+    this.config.highlightWord = this.content.hasAttribute("data-highlightword");
+
     // start the editor with an empty line
     this.appendNewLineEditor();
-
-    // this.initializeMutationObserver();
+    this.initializeMutationObserver();
     this.initializeMentionPopover();
 
     // XXX: if we don't filter this event we'll send at least two input events with the same data
@@ -97,16 +100,14 @@ class Editor {
     });
 
     this.content.addEventListener("focus", async (ev) => {
-      // this.restoreContentFocus();
       await this.updateInterface();
     });
   }
 
-  // FIXME: This observer seems to be the right thing to watch content change. But I still
-  // didn't figure out the best way to use it!
   initializeMutationObserver() {
     const config = {
       attributes: true,
+      attributeFilter: ["data-highlightword", "data-highlightline"],
       childList: true,
       characterData: false,
       subtree: true,
@@ -115,8 +116,19 @@ class Editor {
     const callback = function (mutationList, observer) {
       for (const mutation of mutationList) {
         if (mutation.type === "attributes") {
-          if (mutation.attributeName === "data-mention") {
-            console.log(mutation.attributeName);
+          switch (mutation.attributeName) {
+            case "data-highlightword":
+              window.mentionEditor.config.highlightWord =
+                mutation.target.hasAttribute("data-highlightword");
+              break;
+
+            case "data-highlightline":
+              window.mentionEditor.config.highlightLine =
+                mutation.target.hasAttribute("data-highlightline");
+              break;
+
+            default:
+              break;
           }
         }
       }
@@ -139,36 +151,34 @@ class Editor {
       if (isCollapsed) {
         const word = this.getWordAt(row, col);
 
-        if (word.dataset.mention) {
+        if (word.hasAttribute("data-mention")) {
           this.highlightedMention = word;
-          await this.dotnetReference.invokeMethodAsync("OnMention", word.innerText);
+          await this.dotnetReference.invokeMethodAsync(
+            "OnMention",
+            word.innerText
+          );
         } else {
           if (this.isMentionPopoverOpen) {
-            await this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
+            await this.dotnetReference.invokeMethodAsync(
+              "OnCloseMentionPopover"
+            );
           }
           this.highlightWordUnderCaret(word);
         }
 
         this.highlightCurrentLine();
-        await this.dotnetReference.invokeMethodAsync("OnUpdateStats", row+1, col+1);
+        await this.dotnetReference.invokeMethodAsync(
+          "OnUpdateStats",
+          row + 1,
+          col + 1
+        );
       }
     }
   }
 
-  restoreContentFocus() {
-    // TODO: set the caret back to previous position
-    const range = new Range();
-    range.selectNode(this.content.firstChild);
-    range.collapse();
-
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-  }
-
   isLineEmpty(line) {
     if (line) {
-      const words = line.querySelectorAll(`[data-word="true"]`);
+      const words = line.querySelectorAll(`[data-word]`);
       // the word has two possible values:
       // 1: a text
       // 2: a <br>
@@ -180,7 +190,7 @@ class Editor {
   }
 
   isContentEmpty() {
-    const lines = this.content.querySelectorAll(`[data-line="true"]`);
+    const lines = this.content.querySelectorAll(`[data-line]`);
     if (lines.length > 1) {
       return false;
     }
@@ -190,7 +200,7 @@ class Editor {
   nodeIsInContent(node) {
     if (node) {
       const el = this.nodeToElement(node);
-      if (el && (el.dataset.word || el.dataset.line)) {
+      if (el && (el.hasAttribute("data-word") || el.hasAttribute("data-line"))) {
         return true;
       }
     }
@@ -206,11 +216,13 @@ class Editor {
 
   nodeToLine(node) {
     let el = this.nodeToElement(node);
-    if (el.dataset.line) {
-      return el;
-    }
-    if (el.dataset.word) {
-      return this.nodeToLine(el.parentElement);
+    if (el) {
+      if (el.hasAttribute("data-line")) {
+        return el;
+      }
+      if (el.hasAttribute("data-word")) {
+        return this.nodeToLine(el.parentElement);
+      }
     }
     return null;
   }
@@ -219,7 +231,7 @@ class Editor {
     const line = document.createElement("div");
     const br = document.createElement("br");
     line.appendChild(br);
-    line.setAttribute("data-line", true);
+    line.setAttribute("data-line", "");
     line.classList.add("line");
     this.content.appendChild(line);
     return line;
@@ -233,7 +245,7 @@ class Editor {
   }
 
   // This text editor has a line which is defined as following:
-  //     <div data-line="true"> ...<span data-word="true"></span> </div>
+  //     <div data-line> ...<span data-word></span> </div>
   // But the column is an index as if the line was composed only by text.
   // So this helper function will calculate the `index` which is the index in the
   // line children and an `offset` the character position in the child (element at index)
@@ -283,7 +295,7 @@ class Editor {
   // return `null`
   getEditorCaretLocation() {
     if (this.selection) {
-      const selection = this.selection; // window.getSelection();
+      const selection = this.selection;
       let row = this.getCaretIndexInContent(selection);
 
       if (row >= 0) {
@@ -340,7 +352,7 @@ class Editor {
         const content = line.innerText;
 
         const span = document.createElement("span");
-        span.setAttribute("data-word", "true");
+        span.setAttribute("data-word", "");
         span.innerText = content;
 
         line.replaceChild(span, line.firstChild);
@@ -351,7 +363,7 @@ class Editor {
         // FIXME: if line is empty and the last word in previous line is a mention
         // for some reason the new node create here will contain a data attribute `mention`
         // so we must clean it to close the popover.
-        line.firstElementChild?.removeAttribute("data-mention");
+        line?.firstElementChild?.removeAttribute("data-mention");
       }
     }
 
@@ -373,11 +385,11 @@ class Editor {
   createTextNodeFromToken(token) {
     const el = document.createElement("span");
     el.innerText = token.value;
-    el.setAttribute("data-word", "true");
+    el.setAttribute("data-word", "");
 
     switch (token.type) {
       case TokenType.Mention: {
-        el.setAttribute("data-mention", "true");
+        el.setAttribute("data-mention", "");
         break;
       }
 
@@ -390,7 +402,7 @@ class Editor {
   updateLine(line, tokens) {
     if (line?.children.length === 0) {
       let newLine = document.createElement("div");
-      newLine.setAttribute("data-line", "true");
+      newLine.setAttribute("data-line", "");
       // we are in an empty line
       for (let token of tokens) {
         const el = this.createTextNodeFromToken(token);
@@ -452,15 +464,15 @@ class Editor {
   highlightCurrentLine() {
     const line = this.getLineAt(this.currentCaretLocation.row);
     if (line) {
-      this.lastHighlightedLine?.classList.remove("highlight-line");
-      line.classList.add("highlight-line");
+      this.lastHighlightedLine?.removeAttribute("data-currentline");
+      line.setAttribute("data-currentline", "");
       this.lastHighlightedLine = line;
     }
   }
 
   clearHighlightedWord() {
     if (this.lastHighlightedWord) {
-      this.lastHighlightedWord.removeAttribute("data-highlight");
+      this.lastHighlightedWord.removeAttribute("data-currentword");
     }
   }
 
@@ -469,7 +481,7 @@ class Editor {
 
     if (word?.hasAttribute("data-word")) {
       this.lastHighlightedWord = word;
-      word.setAttribute("data-highlight", "true");
+      word.setAttribute("data-currentword", "");
     }
   }
 

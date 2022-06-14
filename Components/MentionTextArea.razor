@@ -57,7 +57,13 @@
 </div>
 
 <div class="editor-container">
-    <div @ref="_editor" contentEditable data-editor="true" @onkeydown="CheckKey" class="editor editor-typo">
+    <div @ref="_editor"
+         class="editor editor-typo"
+         contentEditable
+         data-editor
+         data-highlightword="@HighlightWord"
+         data-highlightline="@HighlightLine"
+         @onkeydown="CheckKey">
     </div>
 
     <div id="editor-stats" class="d-flex editor-stats px-2 pt-1">

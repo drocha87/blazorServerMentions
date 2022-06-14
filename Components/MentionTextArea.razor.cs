@@ -21,7 +21,7 @@ public class ElementTextContent
     public int Col { get; set; }
 }
 
-public partial class MentionTextArea<T> : ComponentBase, IDisposable
+public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
     where T : IMentionItem
 {
     [Inject] IJSRuntime JS { get; set; } = null!;
@@ -41,6 +41,9 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     [Parameter] public EventCallback<string> TextChanged { get; set; }
 
     [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool HighlightWord { get; set; } = false;
+    [Parameter] public bool HighlightLine { get; set; } = false;
+
     [Parameter] public int DebounceTimer { get; set; } = 500;
     [Parameter] public int MaxSuggestions { get; set; } = 5;
     [Parameter] public Func<string, Task<IEnumerable<T>?>> SearchFunc { get; set; } = null!;
@@ -247,10 +250,19 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose()
+
+    public async ValueTask DisposeAsync()
     {
-        DisposeTimer();
-        JS.InvokeVoidAsync("mentionEditor.dispose").AndForget();
-        GC.SuppressFinalize(this);
+        try
+        {
+            DisposeTimer();
+            // XXX: disposing the js side from here is not enable as the signalr connection may be closed
+            // await JS.InvokeVoidAsync("mentionEditor.dispose");
+            GC.SuppressFinalize(this);
+        }
+        catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
     }
 }
