@@ -21,7 +21,11 @@
     </MudAlert>
 
     <div class="mt-8">
-        <MentionTextArea @ref="_mention" T="Profile" SearchFunc="@SearchFunc">
+        <MentionTextArea @ref="_mention"
+                         T="Profile"
+                         SearchFunc="@SearchFunc"
+                         HighlightWord="@_highlightWord"
+                         HighlightLine="@_highlightLine" >
             <SuggestionContentItem>
                 <MudStack Row AlignItems="AlignItems.Center">
                     @if (!string.IsNullOrEmpty(context.Avatar))
@@ -47,11 +51,15 @@
             </SuggestionContentItem>
         </MentionTextArea>
     </div>
-    <div class="mt-4 d-flex justify-end">
+    <MudStack Row Class="mt-4">
+        <MudCheckBox T="bool" @bind-Checked="@_highlightWord" Label="Highlight Word" />
+        <MudCheckBox T="bool" @bind-Checked="@_highlightLine" Label="Highlight Line" />
+        <MudSpacer></MudSpacer>
+
         <MudButton Variant="Variant.Filled" DisableElevation OnClick="GetContent">
             Get Text Editor Content
         </MudButton>
-    </div>
+    </MudStack>
     <pre class="mt-4 border pa-4 rounded">
         @if (!string.IsNullOrEmpty(Content))
         {
@@ -62,6 +70,9 @@
 
 @code {
     public string? Content { get; set; }
+
+    private bool _highlightWord = true;
+    private bool _highlightLine = true;
 
     private MentionTextArea<Profile> _mention;
 
