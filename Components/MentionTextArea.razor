@@ -56,5 +56,18 @@
     </MudPopover>
 </div>
 
-<div @ref="_editor" contentEditable data-editor="true" @onkeydown="CheckKey" class="editor editor-typo">
+<div class="editor-container">
+    <div @ref="_editor" contentEditable data-editor="true" @onkeydown="CheckKey" class="editor editor-typo">
+    </div>
+
+    <div id="editor-stats" class="d-flex editor-stats px-2 pt-1">
+        @* @if (!string.IsNullOrEmpty(@_currentWord))
+        {
+            <div>Current Word: @_currentWord</div>
+        } *@
+
+        <div class="ml-4">Ln @_currentLine</div>
+        <div class="mr-1">,</div>
+        <div>Col @_currentCol</div>
+    </div>
 </div>

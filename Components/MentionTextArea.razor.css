@@ -1,11 +1,17 @@
-.editor {
-  display: block;
-  padding: 10px;
-
+.editor-container {
   border-radius: var(--mud-default-borderradius);
   border-color: var(--mud-palette-grey-light);
   border-style: solid;
   border-width: 1px;
+
+  overflow: hidden;
+}
+
+.editor {
+  display: block;
+  /* padding: 10px; */
+  margin-top: 10px;
+
 
   min-height: 60px;
   width: 100%;
@@ -17,14 +23,14 @@
   overflow-wrap: break-word;
 }
 
-.editor:focus-within {
+.editor-container:focus-within {
   /* I need to remove one pixel of padding to avoid changing the size of the textarea
      when focus in or focus out */
-  padding: 9px;
+  /* padding: 2px; */
 
   border-color: var(--mud-palette-primary);
   border-style: solid;
-  border-width: 2px;
+  border-width: 1px;
 }
 
 .editor-typo {
@@ -36,3 +42,14 @@
   text-transform: var(--mud-typography-subtitle1-text-transform);
 }
 
+.editor-stats {
+  font-family: var(--mud-typography-caption-family);
+  font-size: var(--mud-typography-caption-size);
+  font-weight: var(--mud-typography-caption-weight);
+  line-height: var(--mud-typography-caption-lineheight);
+  letter-spacing: var(--mud-typography-caption-letterspacing);
+  text-transform: var(--mud-typography-caption-text-transform);
+
+  justify-content: end;
+  background-color: #fafafa;
+}

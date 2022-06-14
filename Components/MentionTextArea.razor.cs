@@ -91,23 +91,18 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     public async Task OnItemSelected(T item)
     {
         await JS.InvokeVoidAsync("mentionEditor.insertMentionAtHighlighted", item.Username!);
-        await ResetMentions();
+        await InvokeAsync(ResetMentions);
     }
 
-    private async Task ResetMentions()
+    private void ResetMentions()
     {
         if (_showMentionBox)
         {
-            Console.WriteLine("closing mentions");
             DisposeTimer();
             _showMentionBox = false;
             _suggestions = null;
             SelectedSuggestionIndex = 0;
             CurrentWord = null;
-            // FIXME: whitout this task.delay the has state is not change and the mention box
-            // do not close
-            await Task.Delay(10);
-            // await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -146,11 +141,14 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
                     return;
 
                 case "Enter":
-                    await OnItemSelected(_suggestions!.ElementAt((int)SelectedSuggestionIndex));
+                    if ((int)SelectedSuggestionIndex < _suggestions!.Count())
+                    {
+                        await OnItemSelected(_suggestions!.ElementAt((int)SelectedSuggestionIndex));
+                    }
                     return;
 
                 case "Escape":
-                    await ResetMentions();
+                    await InvokeAsync(ResetMentions);
                     return;
             }
         }
@@ -241,8 +239,18 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     [JSInvokable]
     public async Task OnCloseMentionPopover()
     {
-        Console.WriteLine("OnCloseMentionPopover");
-        await ResetMentions();
+        await InvokeAsync(ResetMentions);
+    }
+
+    private string _currentWord = "";
+    private int _currentLine = 1;
+    private int _currentCol = 1;
+    [JSInvokable]
+    public async Task OnUpdateStats(string word, int line, int col)
+    {
+        _currentWord = word;
+        _currentLine = line;
+        _currentCol = col;
         await InvokeAsync(StateHasChanged);
     }
 

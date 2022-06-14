@@ -39,7 +39,7 @@ class Editor {
     // start the editor with an empty line
     this.appendNewLineEditor();
 
-    this.initializeMutationObserver();
+    // this.initializeMutationObserver();
     this.initializeMentionPopover();
 
     // XXX: if we don't filter this event we'll send at least two input events with the same data
@@ -59,7 +59,7 @@ class Editor {
     document.addEventListener("selectionchange", async (ev) => {
       if (ev.target.activeElement === this.content) {
         this.selection = document.getSelection();
-        // this.currentCaretLocation = this.getEditorCaretLocation(this.selection);
+
         await this.updateInterface();
       }
     });
@@ -102,6 +102,8 @@ class Editor {
     });
   }
 
+  // FIXME: This observer seems to be the right thing to watch content change. But I still
+  // didn't figure out the best way to use it!
   initializeMutationObserver() {
     const config = {
       attributes: true,
@@ -127,9 +129,29 @@ class Editor {
   async updateInterface() {
     this.currentCaretLocation = this.getEditorCaretLocation();
     if (this.currentCaretLocation) {
-      this.clearHighlightedWord();
-      this.highlightCurrentLine();
-      await this.highlightWordUnderCaret();
+      const { row, col, isCollapsed } = this.currentCaretLocation;
+
+      if (this.isContentEmpty()) {
+        await this.dotnetReference.invokeMethodAsync("OnUpdateStats", "", 1, 1);
+        return;
+      }
+
+      if (isCollapsed) {
+        const word = this.getWordAt(row, col);
+
+        if (word.dataset.mention) {
+          this.highlightedMention = word;
+          await this.dotnetReference.invokeMethodAsync("OnMention", word.innerText);
+        } else {
+          if (this.isMentionPopoverOpen) {
+            await this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
+          }
+          this.highlightWordUnderCaret(word);
+        }
+
+        this.highlightCurrentLine();
+        await this.dotnetReference.invokeMethodAsync("OnUpdateStats", word.innerText, row+1, col+1);
+      }
     }
   }
 
@@ -145,13 +167,16 @@ class Editor {
   }
 
   isLineEmpty(line) {
-    const words = line.querySelectorAll(`[data-word="true"]`);
-    // the word has two possible values:
-    // 1: a text
-    // 2: a <br>
-    // in case of a text `firstElementChild` IS NULL so we know that the
-    // line is not empty
-    return words.length <= 0 || words[0].firstElementChild !== null;
+    if (line) {
+      const words = line.querySelectorAll(`[data-word="true"]`);
+      // the word has two possible values:
+      // 1: a text
+      // 2: a <br>
+      // in case of a text `firstElementChild` IS NULL so we know that the
+      // line is not empty
+      return words.length <= 0 || words[0].firstElementChild !== null;
+    }
+    return true;
   }
 
   isContentEmpty() {
@@ -316,6 +341,12 @@ class Editor {
       }
     } else {
       line = this.nodeToLine(this.selection.anchorNode);
+      if (this.isLineEmpty(line)) {
+        // FIXME: if line is empty and the last word in previous line is a mention
+        // for some reason the new node create here will contain a data attribute `mention`
+        // so we must clean it to close the popover.
+        line.firstElementChild.removeAttribute("data-mention");
+      }
     }
 
     if (line) {
@@ -427,16 +458,12 @@ class Editor {
     }
   }
 
-  async highlightWordUnderCaret() {
-    if (!this.isContentEmpty()) {
-      const { row, col, isCollapsed } = this.currentCaretLocation;
-      if (isCollapsed) {
-        const word = this.getWordAt(row, col);
-        if (word?.hasAttribute("data-word")) {
-          this.lastHighlightedWord = word;
-          word.setAttribute("data-highlight", "true");
-        }
-      }
+  highlightWordUnderCaret(word) {
+    this.clearHighlightedWord();
+
+    if (word?.hasAttribute("data-word")) {
+      this.lastHighlightedWord = word;
+      word.setAttribute("data-highlight", "true");
     }
   }
 
