@@ -326,6 +326,12 @@ class Editor {
     this.currentCaretLocation = { row, col, isCollapsed: true };
   }
 
+  getContent() {
+    if (!this.isContentEmpty()) {
+      return this.content.innerText;
+    }
+  }
+
   async emitEditorUpdate(event) {
     let line = null;
     if (this.isContentEmpty()) {

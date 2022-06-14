@@ -64,6 +64,12 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         }
     }
 
+    public async Task<string> GetContent()
+    {
+        var content = await JS.InvokeAsync<string>("mentionEditor.getContent");
+        return content;
+    }
+
     private System.Timers.Timer? _timer;
 
     private void StartTimer()
@@ -78,8 +84,6 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
     {
         if (_timer is not null)
         {
-            // _timer.Enabled = false;
-            // _timer.Elapsed -= OnSearchAsync;
             _timer.Dispose();
             _timer = null;
             _suggestions = null;
@@ -249,5 +253,4 @@ public partial class MentionTextArea<T> : ComponentBase, IDisposable
         JS.InvokeVoidAsync("mentionEditor.dispose").AndForget();
         GC.SuppressFinalize(this);
     }
-
 }
