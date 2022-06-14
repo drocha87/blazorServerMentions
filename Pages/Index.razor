@@ -21,7 +21,7 @@
     </MudAlert>
 
     <div class="mt-8">
-        <MentionTextArea T="Profile" Text="@Text" SearchFunc="@SearchFunc">
+        <MentionTextArea @ref="_mention" T="Profile" SearchFunc="@SearchFunc">
             <SuggestionContentItem>
                 <MudStack Row AlignItems="AlignItems.Center">
                     @if (!string.IsNullOrEmpty(context.Avatar))
@@ -47,13 +47,32 @@
             </SuggestionContentItem>
         </MentionTextArea>
     </div>
+    <div class="mt-4 d-flex justify-end">
+        <MudButton Variant="Variant.Filled" DisableElevation OnClick="GetContent">
+            Get Text Editor Content
+        </MudButton>
+    </div>
+    <pre class="mt-4 border pa-4 rounded">
+        @if (!string.IsNullOrEmpty(Content))
+        {
+            <p>@Content</p>
+        }
+    </pre>
 </MudContainer>
 
 @code {
-    public string? Text { get; set; }
+    public string? Content { get; set; }
+
+    private MentionTextArea<Profile> _mention;
 
     private async Task<IEnumerable<Profile>?> SearchFunc(string query)
     {
         return await ProfileSvc.GetProfiles(query, limit: 5);
     }
+
+    private async Task GetContent()
+    {
+        Content = await _mention.GetContent();
+    }
+
 }
