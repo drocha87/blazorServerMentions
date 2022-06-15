@@ -200,7 +200,10 @@ class Editor {
   nodeIsInContent(node) {
     if (node) {
       const el = this.nodeToElement(node);
-      if (el && (el.hasAttribute("data-word") || el.hasAttribute("data-line"))) {
+      if (
+        el &&
+        (el.hasAttribute("data-word") || el.hasAttribute("data-line"))
+      ) {
         return true;
       }
     }
@@ -249,28 +252,25 @@ class Editor {
   // But the column is an index as if the line was composed only by text.
   // So this helper function will calculate the `index` which is the index in the
   // line children and an `offset` the character position in the child (element at index)
-  getWordIndexAndOffset(line, offset) {
-    for (let [index, word] of [...line.children].entries()) {
-      const len = word.innerText.length;
-      if (len >= offset) {
-        return { index, offset };
-      }
-      offset -= len;
-    }
-    // FIXME: sometimes I reach this state, which should never happen!
-    throw new Error(
-      `offset ${offset} is not present in line ${line?.innerText}`
-    );
-  }
+  getWordIndexAndOffset(line, col) {
+    let index = 0;
+    let offset = col;
 
-  getWordInLine(line, col) {
-    const { index } = this.getWordIndexAndOffset(line, col);
-    return [...line.children][index];
+    for (let word of line.querySelectorAll("[data-word]")) {
+      const wordOffset = parseInt(word.dataset.wordoffset, 10);
+      offset = col - wordOffset;
+      if (offset <= 0) {
+        break;
+      }
+      index = parseInt(word.dataset.wordindex, 10);
+    }
+    return { index, offset: Math.abs(offset) };
   }
 
   getWordAt(row, col) {
     const line = this.getLineAt(row);
-    return this.getWordInLine(line, col);
+    const { index } = this.getWordIndexAndOffset(line, col);
+    return [...line.children][index];
   }
 
   getCaretIndexInContent(selection) {
@@ -322,22 +322,6 @@ class Editor {
     selection.addRange(range);
   }
 
-  setEditorCaretLocation(line, row, col) {
-    const range = new Range();
-    const selection = window.getSelection();
-
-    const { index, offset } = this.getWordIndexAndOffset(line, col);
-    const word = line.children[index];
-
-    range.setStart(word.firstChild, offset);
-    range.collapse(true);
-
-    selection.removeAllRanges();
-    selection.addRange(range);
-
-    this.currentCaretLocation = { row, col, isCollapsed: true };
-  }
-
   getContent() {
     if (!this.isContentEmpty()) {
       return this.content.innerText;
@@ -382,10 +366,12 @@ class Editor {
     }
   }
 
-  createTextNodeFromToken(token) {
+  createTextNodeFromToken(token, location) {
     const el = document.createElement("span");
     el.innerText = token.value;
     el.setAttribute("data-word", "");
+    el.setAttribute("data-wordindex", location.index);
+    el.setAttribute("data-wordoffset", location.offset);
 
     switch (token.type) {
       case TokenType.Mention: {
@@ -403,20 +389,18 @@ class Editor {
     if (line?.children.length === 0) {
       let newLine = document.createElement("div");
       newLine.setAttribute("data-line", "");
-      // we are in an empty line
-      for (let token of tokens) {
-        const el = this.createTextNodeFromToken(token);
-        newLine.appendChild(el);
-      }
       this.content.replaceChild(newLine, line);
-      return newLine;
+      line = newLine;
     }
 
     const wordsInLine = line.children.length;
+    let offset = 0;
 
     for (let [index, token] of tokens.entries()) {
       const node = line.children[index];
-      const el = this.createTextNodeFromToken(token);
+
+      const el = this.createTextNodeFromToken(token, { index, offset });
+      offset += token.value.length;
 
       if (node === undefined) {
         line.appendChild(el);
