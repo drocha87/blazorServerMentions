@@ -13,7 +13,7 @@ div[contenteditable][data-highlightword] div[data-line] span[data-currentword] {
   background-color: #e5e5e5;
 }
 
-div[contenteditable][data-highlightword] div[data-line] span[data-mention] {
+div[contenteditable] div[data-line] span[data-mention] {
   background-color: #bde0fe;
 }
 

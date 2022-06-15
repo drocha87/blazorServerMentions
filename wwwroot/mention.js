@@ -12,8 +12,6 @@ class Editor {
   selection = null;
 
   highlightedMention = null;
-  lastHighlightedWord = null;
-  lastHighlightedLine = null;
   currentCaretLocation = { row: 0, col: 0, isCollapsed: false };
   config = {};
 
@@ -62,7 +60,6 @@ class Editor {
     document.addEventListener("selectionchange", async (ev) => {
       if (ev.target.activeElement === this.content) {
         this.selection = document.getSelection();
-
         await this.updateInterface();
       }
     });
@@ -141,6 +138,9 @@ class Editor {
   async updateInterface() {
     this.currentCaretLocation = this.getEditorCaretLocation();
     if (this.currentCaretLocation) {
+      this.clearHighlightedWord();
+      this.clearHighlightedLine();
+
       const { row, col, isCollapsed } = this.currentCaretLocation;
 
       if (this.isContentEmpty()) {
@@ -149,9 +149,20 @@ class Editor {
       }
 
       if (isCollapsed) {
-        const word = this.getWordAt(row, col);
+        this.highlightCurrentLine();
 
-        if (word.hasAttribute("data-mention")) {
+        let word = this.getWordAt(row, col);
+        if (!word) {
+          if (col > 0) {
+            // the caret is in the last line position
+            word = this.getWordAt(row, col - 1);
+            if (!word || this.isSpace(word)) {
+              return;
+            }
+          }
+        }
+
+        if (word?.hasAttribute("data-mention")) {
           this.highlightedMention = word;
           await this.dotnetReference.invokeMethodAsync(
             "OnMention",
@@ -166,13 +177,36 @@ class Editor {
           this.highlightWordUnderCaret(word);
         }
 
-        this.highlightCurrentLine();
         await this.dotnetReference.invokeMethodAsync(
           "OnUpdateStats",
           row + 1,
           col + 1
         );
       }
+    }
+  }
+
+  clearHighlightedWord() {
+    const word = this.content.querySelector("[data-currentword]");
+    word?.removeAttribute("data-currentword");
+  }
+
+  clearHighlightedLine() {
+    const hl = this.content.querySelector("[data-currentline]");
+    hl?.removeAttribute("data-currentline");
+  }
+
+  highlightCurrentLine() {
+    const line = this.getLineAt(this.currentCaretLocation.row);
+    line?.setAttribute("data-currentline", "");
+  }
+
+  highlightWordUnderCaret(word) {
+    if (this.isSpace(word)) {
+      word = word?.previousElementSibling;
+    }
+    if (word && !this.isSpace(word)) {
+      word.setAttribute("data-currentword", "");
     }
   }
 
@@ -195,19 +229,6 @@ class Editor {
       return false;
     }
     return this.isLineEmpty(lines[0]);
-  }
-
-  nodeIsInContent(node) {
-    if (node) {
-      const el = this.nodeToElement(node);
-      if (
-        el &&
-        (el.hasAttribute("data-word") || el.hasAttribute("data-line"))
-      ) {
-        return true;
-      }
-    }
-    return false;
   }
 
   nodeToElement(node) {
@@ -257,30 +278,40 @@ class Editor {
     let offset = col;
 
     for (let word of line.querySelectorAll("[data-word]")) {
-      const wordOffset = parseInt(word.dataset.wordoffset, 10);
-      offset = col - wordOffset;
-      if (offset <= 0) {
+      index = parseInt(word.dataset.wordindex, 10);
+      const start = parseInt(word.dataset.wordstart, 10);
+      const end = parseInt(word.dataset.wordend, 10);
+      if (col >= start && col <= end) {
         break;
       }
-      index = parseInt(word.dataset.wordindex, 10);
+      offset = col - end;
     }
-    return { index, offset: Math.abs(offset) };
+    return { index, offset };
+  }
+
+  isSpace(word) {
+    if (word?.hasAttribute("data-word")) {
+      return /\s/g.test(word?.innerText);
+    }
+    return false;
   }
 
   getWordAt(row, col) {
     const line = this.getLineAt(row);
-    const { index } = this.getWordIndexAndOffset(line, col);
-    return [...line.children][index];
+
+    for (let word of line.querySelectorAll("[data-word]")) {
+      const start = parseInt(word.dataset.wordstart, 10);
+      const end = parseInt(word.dataset.wordend, 10);
+      if (col >= start && col < end) {
+        return word;
+      }
+    }
+    // return null if the caret is after the last character in line
+    return null;
   }
 
-  getCaretIndexInContent(selection) {
-    let node = selection.anchorNode;
-    let line = this.nodeToLine(node);
-    return Array.prototype.indexOf.call(this.content.children, line);
-  }
-
-  getCaretOffsetInLine(line, selection) {
-    const range = selection.getRangeAt(0);
+  getCaretOffsetInLine(line, sel) {
+    const range = sel.getRangeAt(0);
     const clone = range.cloneRange();
     // basically select the entire line
     clone.selectNodeContents(line);
@@ -295,14 +326,17 @@ class Editor {
   // return `null`
   getEditorCaretLocation() {
     if (this.selection) {
-      const selection = this.selection;
-      let row = this.getCaretIndexInContent(selection);
+      const sel = this.selection;
+      const node = sel.anchorNode;
+      const line = this.nodeToLine(node);
 
+      const row = Array.prototype.indexOf.call(this.content.children, line);
       if (row >= 0) {
-        let line = this.nodeToLine(selection.anchorNode);
-        let col = this.getCaretOffsetInLine(line, selection);
-
-        return { row, col, isCollapsed: selection.isCollapsed };
+        return {
+          row,
+          col: this.getCaretOffsetInLine(line, sel),
+          isCollapsed: sel.isCollapsed,
+        };
       }
     }
     return null;
@@ -352,7 +386,7 @@ class Editor {
     }
 
     if (line) {
-      let offset = this.getCaretOffsetInLine(line, this.selection);
+      const offset = this.getCaretOffsetInLine(line, this.selection);
       const content = line.innerText;
 
       if (content?.length > 0 && content !== "\n") {
@@ -371,14 +405,14 @@ class Editor {
     el.innerText = token.value;
     el.setAttribute("data-word", "");
     el.setAttribute("data-wordindex", location.index);
-    el.setAttribute("data-wordoffset", location.offset);
+    el.setAttribute("data-wordstart", location.start);
+    el.setAttribute("data-wordend", location.end);
 
     switch (token.type) {
       case TokenType.Mention: {
         el.setAttribute("data-mention", "");
         break;
       }
-
       default:
         break;
     }
@@ -386,7 +420,7 @@ class Editor {
   }
 
   updateLine(line, tokens) {
-    if (line?.children.length === 0) {
+    if (this.isLineEmpty(line)) {
       let newLine = document.createElement("div");
       newLine.setAttribute("data-line", "");
       this.content.replaceChild(newLine, line);
@@ -394,13 +428,18 @@ class Editor {
     }
 
     const wordsInLine = line.children.length;
-    let offset = 0;
+    let start = 0;
 
     for (let [index, token] of tokens.entries()) {
       const node = line.children[index];
+      const len = token.value.length;
 
-      const el = this.createTextNodeFromToken(token, { index, offset });
-      offset += token.value.length;
+      const el = this.createTextNodeFromToken(token, {
+        index,
+        start,
+        end: start + len,
+      });
+      start += len;
 
       if (node === undefined) {
         line.appendChild(el);
@@ -442,30 +481,6 @@ class Editor {
       selection.addRange(range);
 
       await this.emitEditorUpdate();
-    }
-  }
-
-  highlightCurrentLine() {
-    const line = this.getLineAt(this.currentCaretLocation.row);
-    if (line) {
-      this.lastHighlightedLine?.removeAttribute("data-currentline");
-      line.setAttribute("data-currentline", "");
-      this.lastHighlightedLine = line;
-    }
-  }
-
-  clearHighlightedWord() {
-    if (this.lastHighlightedWord) {
-      this.lastHighlightedWord.removeAttribute("data-currentword");
-    }
-  }
-
-  highlightWordUnderCaret(word) {
-    this.clearHighlightedWord();
-
-    if (word?.hasAttribute("data-word")) {
-      this.lastHighlightedWord = word;
-      word.setAttribute("data-currentword", "");
     }
   }
 
