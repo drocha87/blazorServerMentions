@@ -1,0 +1,25 @@
+{
+  "name": "blazorservermentions",
+  "version": "1.0.0",
+  "description": "https://user-images.githubusercontent.com/31552590/173620006-d1f24986-641a-45a1-8d79-02c0975ebf54.mp4",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "npx tsc -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drocha87/blazorServerMentions.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/drocha87/blazorServerMentions/issues"
+  },
+  "homepage": "https://github.com/drocha87/blazorServerMentions#readme",
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^4.7.3"
+  }
+}

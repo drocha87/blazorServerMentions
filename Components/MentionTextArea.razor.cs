@@ -58,12 +58,18 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
     private IEnumerable<T>? _suggestions;
     private object SelectedSuggestionIndex { get; set; } = 0;
 
+    private IJSObjectReference _jsEditor;
+    private IJSObjectReference _jsEditorContext;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            _jsEditor = await JS.InvokeAsync<IJSObjectReference>("import", "./scripts/components/editor.js");
+            // _jsEditorContext = await JS.InvokeAsync<IJSObjectReference>("import", "./scripts/components/context.js");
+
             var reference = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("mentionEditor.initialize", reference);
+            await _jsEditor.InvokeVoidAsync("editor.initialize", reference);
         }
     }
 
@@ -256,8 +262,15 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
         try
         {
             DisposeTimer();
-            // XXX: disposing the js side from here is not enable as the signalr connection may be closed
-            // await JS.InvokeVoidAsync("mentionEditor.dispose");
+
+            if (_jsEditor is not null) {
+                await _jsEditor.DisposeAsync();
+            }
+
+            if (_jsEditorContext is not null) {
+                await _jsEditorContext.DisposeAsync();
+            }
+
             GC.SuppressFinalize(this);
         }
         catch(Exception e)

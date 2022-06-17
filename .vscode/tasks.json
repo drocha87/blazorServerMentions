@@ -36,6 +36,14 @@
                 "${workspaceFolder}/blazorServerMentions.csproj"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "watch-ts",
+            "command": "npx tsc -w",
+            "type": "process",
+            "runOptions": {
+                "runOn": "folderOpen",
+            }
         }
     ]
 }
