@@ -61,6 +61,10 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
     private IJSObjectReference _jsEditor;
     private IJSObjectReference _jsEditorContext;
 
+    private double _popoverLeftPosition = 0;
+    private double _popoverTopPosition = 0;
+    private string PopoverPositionStyle => $"left: {_popoverLeftPosition}px; top: {_popoverTopPosition}px";
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -71,6 +75,7 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
             var reference = DotNetObjectReference.Create(this);
             await _jsEditor.InvokeVoidAsync("editor.initialize", reference);
         }
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     public async Task<string> GetContent()
@@ -240,6 +245,15 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
+    public async Task SetPopoverPosition(double top, double left)
+    {
+        Console.WriteLine($"top: {top}; left: {left}");
+        _popoverTopPosition = top;
+        _popoverLeftPosition = left;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
     public async Task OnCloseMentionPopover()
     {
         await InvokeAsync(ResetMentions);
@@ -263,19 +277,19 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
         {
             DisposeTimer();
 
-            if (_jsEditor is not null) {
+            if (_jsEditor is not null)
+            {
                 await _jsEditor.DisposeAsync();
             }
 
-            if (_jsEditorContext is not null) {
+            if (_jsEditorContext is not null)
+            {
                 await _jsEditorContext.DisposeAsync();
             }
 
             GC.SuppressFinalize(this);
         }
-        catch(Exception e)
-        {
-            Console.WriteLine(e.Message);
-        }
+        catch (JSDisconnectedException) { }
+        catch (TaskCanceledException) { }
     }
 }

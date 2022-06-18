@@ -3,12 +3,7 @@
 <MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
 
 <div class="absolute" id="editor-popover-container">
-    <MudPopover
-        Open="@_showMentionBox"
-        OverflowBehavior="OverflowBehavior.FlipAlways"
-        AnchorOrigin="Origin.TopLeft"
-        TransformOrigin="Origin.BottomLeft">
-
+    <MudPopover Open="@_showMentionBox" >
         <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
             <MudListSubheader>
                 Members

@@ -16,20 +16,13 @@ var TokenType;
 export class EditorContext {
     constructor(editor) {
         this.editor = editor;
-        this.row = 0;
-        this.col = 0;
         this.subscribers = [];
     }
     update() {
-        const location = this.editor.getEditorCaretLocation();
-        if (location) {
-            const { row, col, isCollapsed } = location;
+        var _a;
+        this.location = this.editor.getEditorCaretLocation();
+        if ((_a = this.location) === null || _a === void 0 ? void 0 : _a.line) {
             if (!this.editor.updatingEditorContent) {
-                console.log("updating interface");
-                this.row = row;
-                this.col = col;
-                this.line = this.editor.getLineAt(row);
-                this.word = this.editor.getWordAt(row, col);
                 for (let subscriber of this.subscribers) {
                     subscriber(this);
                 }
@@ -40,18 +33,17 @@ export class EditorContext {
         this.subscribers.push(callback);
     }
     isMention() {
-        var _a;
-        return (_a = this.word) === null || _a === void 0 ? void 0 : _a.hasAttribute("data-mention");
+        var _a, _b;
+        return (_b = (_a = this.location) === null || _a === void 0 ? void 0 : _a.word) === null || _b === void 0 ? void 0 : _b.hasAttribute("data-mention");
     }
 }
 export class Editor {
     constructor() {
         this.dotnetReference = null;
-        this.popoverContent = null;
+        this.popover = null;
         this.selection = null;
         this.shouldRender = false;
         this.updatingEditorContent = false;
-        this.currentCaretLocation = { row: 0, col: 0, isCollapsed: false };
         if (typeof window.getSelection === "undefined") {
             // we depend on window.getSelection existing
             throw new Error("your browser do not support window.getSelection! The editor will not work properly");
@@ -67,9 +59,6 @@ export class Editor {
         this.dotnetReference = reference;
         this.content = document.getElementsByClassName("editor")[0];
         this.context = new EditorContext(this);
-        const container = document.getElementsByClassName("mud-main-content")[0];
-        console.log(container);
-        container.addEventListener("change", (ev) => console.log("unload"));
         // start the editor with an empty line
         this.appendNewLineEditor();
         this.initializeMutationObserver();
@@ -122,6 +111,15 @@ export class Editor {
                         break;
                 }
             }
+            else {
+                switch (ev.key) {
+                    case "Enter":
+                        // opening a new line, we should ensure the structure of <div line><span word><br></span></div>
+                        break;
+                    default:
+                        break;
+                }
+            }
         });
         this.content.addEventListener("blur", (ev) => {
             this.shouldRender = true;
@@ -148,6 +146,26 @@ export class Editor {
         };
         this.mutationObserver = new MutationObserver((mutationList, observer) => {
             for (const mutation of mutationList) {
+                if (mutation.type === "childList") {
+                    if (mutation.addedNodes.length > 0) {
+                        const node = mutation.addedNodes[0];
+                        if (node instanceof HTMLElement) {
+                            const el = node;
+                            if (el.hasAttribute("data-line")) {
+                                // console.log("added: ", el);
+                            }
+                        }
+                    }
+                    if (mutation.removedNodes.length > 0) {
+                        const node = mutation.removedNodes[0];
+                        if (node instanceof HTMLElement) {
+                            const el = node;
+                            if (el.hasAttribute("data-line")) {
+                                // console.log("removed: ", el);
+                            }
+                        }
+                    }
+                }
                 if (mutation.type === "attributes") {
                     switch (mutation.attributeName) {
                         case "data-highlightword":
@@ -165,31 +183,31 @@ export class Editor {
         return __awaiter(this, void 0, void 0, function* () {
             this.clearHighlightedWord();
             this.clearHighlightedLine();
-            const { row, col, word: ctxWord } = ctx;
+            const { row, col, word, line } = ctx.location;
             if (this.isContentEmpty()) {
                 yield this.dotnetReference.invokeMethodAsync("OnUpdateStats", 1, 1);
                 return;
             }
-            let word = ctxWord;
-            this.highlightCurrentLine();
-            if (!word) {
+            this.highlightCurrentLine(ctx);
+            let workingWord = word;
+            if (!workingWord) {
                 if (col > 0) {
                     // the caret is in the last line position
-                    word = this.getWordAt(row, col - 1);
-                    if (!word || this.isSpace(word)) {
+                    workingWord = this.getWordAt(row, col - 1);
+                    if (!workingWord || this.isSpace(workingWord)) {
                         return;
                     }
                 }
             }
-            if (word === null || word === void 0 ? void 0 : word.hasAttribute("data-mention")) {
-                this.highlightedMention = word;
-                yield this.dotnetReference.invokeMethodAsync("OnMention", word.innerText);
+            if (workingWord === null || workingWord === void 0 ? void 0 : workingWord.hasAttribute("data-mention")) {
+                this.highlightedMention = workingWord;
+                yield this.dotnetReference.invokeMethodAsync("OnMention", workingWord.innerText);
             }
             else {
                 if (this.isMentionPopoverOpen) {
                     yield this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
                 }
-                this.highlightWordUnderCaret(word);
+                this.highlightWordUnderCaret(workingWord);
             }
             yield this.dotnetReference.invokeMethodAsync("OnUpdateStats", row + 1, col + 1);
         });
@@ -204,9 +222,11 @@ export class Editor {
         const hl = (_a = this.content) === null || _a === void 0 ? void 0 : _a.querySelector("[data-currentline]");
         hl === null || hl === void 0 ? void 0 : hl.removeAttribute("data-currentline");
     }
-    highlightCurrentLine() {
-        const line = this.getLineAt(this.currentCaretLocation.row);
-        line === null || line === void 0 ? void 0 : line.setAttribute("data-currentline", "");
+    highlightCurrentLine(context) {
+        var _a;
+        if (context.location) {
+            (_a = context.location.line) === null || _a === void 0 ? void 0 : _a.setAttribute("data-currentline", "");
+        }
     }
     highlightWordUnderCaret(word) {
         if (this.isSpace(word)) {
@@ -216,7 +236,7 @@ export class Editor {
             }
             word = previous;
         }
-        word.setAttribute("data-currentword", "");
+        word === null || word === void 0 ? void 0 : word.setAttribute("data-currentword", "");
     }
     isLineEmpty(line) {
         if (line) {
@@ -323,18 +343,21 @@ export class Editor {
             const sel = this.selection;
             const node = sel.anchorNode;
             const line = this.nodeToLine(node);
-            if (line) {
+            if (line && sel.isCollapsed) {
                 const row = Array.prototype.indexOf.call(this.content.children, line);
+                const col = this.getCaretOffsetInLine(line, sel);
+                const word = this.getWordAt(row, col);
                 if (row >= 0) {
                     return {
                         row,
-                        col: this.getCaretOffsetInLine(line, sel),
-                        isCollapsed: sel.isCollapsed,
+                        col,
+                        line,
+                        word,
                     };
                 }
             }
         }
-        return { row: 0, col: 0, isCollapsed: false };
+        return { row: 0, col: 0 };
     }
     setCaretInLine(line, col) {
         const selection = window.getSelection();
@@ -472,40 +495,51 @@ export class Editor {
     }
     get isMentionPopoverOpen() {
         var _a, _b;
-        return (_b = (_a = this.popoverContent) === null || _a === void 0 ? void 0 : _a.classList.contains("mud-popover-open")) !== null && _b !== void 0 ? _b : false;
+        return (_b = (_a = this.popover) === null || _a === void 0 ? void 0 : _a.classList.contains("mud-popover-open")) !== null && _b !== void 0 ? _b : false;
     }
     initializeMentionPopover() {
         var _a;
-        // get the popover content, so we can positionate if according to the mention
+        // get the popover content, so we can positionate it according to the mention
         let popoverElement = (_a = document.getElementById("editor-popover-container")) === null || _a === void 0 ? void 0 : _a.firstElementChild;
         if (!popoverElement) {
             throw new Error("popoverElement is not in the DOM");
         }
         // strip the first 8 "popover-" string because the popover content use the same guid defined after it
         let popoverId = popoverElement.id.substring(8);
-        this.popoverContent = document.getElementById(`popovercontent-${popoverId}`);
-        // FIXME: **remove it** hack to fix popover position
-        const mudpopoverHelper = window.mudpopoverHelper;
-        const originalPlacePopover = mudpopoverHelper.placePopover;
-        mudpopoverHelper.placePopover = function (popoverNode, classSelector) {
-            if (popoverNode) {
-                const id = popoverNode.id.substring(8);
-                if (id === popoverId) {
-                    window.mentionEditor.placePopover();
-                    return;
+        this.popover = document.getElementById(`popovercontent-${popoverId}`);
+        if (this.popover) {
+            window.mudPopover.disconnect(popoverId);
+            const config = {
+                attributes: true,
+            };
+            const mutationObserver = new MutationObserver((mutationList, observe) => __awaiter(this, void 0, void 0, function* () {
+                if (editor.highlightedMention) {
+                    for (const mutation of mutationList) {
+                        if (mutation.type === "attributes") {
+                            const el = mutation.target;
+                            if (el.classList.contains("mud-popover-open")) {
+                                const selfRect = this.popover.getBoundingClientRect();
+                                this.placePopover(selfRect.height);
+                            }
+                        }
+                    }
                 }
-                originalPlacePopover(popoverNode, classSelector);
-            }
-        };
+            }));
+            mutationObserver.observe(this.popover, config);
+            const resizeObserver = new ResizeObserver((entries) => __awaiter(this, void 0, void 0, function* () {
+                const entry = entries[0];
+                if (editor.highlightedMention) {
+                    this.placePopover(entry.contentRect.height);
+                }
+            }));
+            resizeObserver.observe(this.popover);
+        }
     }
-    placePopover() {
-        if (this.isMentionPopoverOpen) {
+    placePopover(height) {
+        if (this.popover) {
             const rect = this.highlightedMention.getBoundingClientRect();
-            const selfRect = this.popoverContent.getBoundingClientRect();
-            // use the native mudPopover to calculate the position
-            const { top, left, offsetX, offsetY } = window.mudpopoverHelper.calculatePopoverPosition(Array.from(this.popoverContent.classList), rect, selfRect);
-            this.popoverContent.style.left = left + offsetX + "px";
-            this.popoverContent.style.top = top + offsetY + "px";
+            this.popover.style.top = `${rect.top - height - 2}px`;
+            this.popover.style.left = `${rect.left}px`;
         }
     }
 }
