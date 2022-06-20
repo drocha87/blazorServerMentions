@@ -16,18 +16,21 @@ var TokenType;
 export class EditorContext {
     constructor(editor) {
         this.editor = editor;
+        this.isPopoverOpened = false;
         this.subscribers = [];
     }
     update() {
         var _a;
-        this.location = this.editor.getEditorCaretLocation();
-        if ((_a = this.location) === null || _a === void 0 ? void 0 : _a.line) {
-            if (!this.editor.updatingEditorContent) {
-                for (let subscriber of this.subscribers) {
-                    subscriber(this);
+        return __awaiter(this, void 0, void 0, function* () {
+            this.location = yield this.editor.getEditorCaretLocation();
+            if ((_a = this.location) === null || _a === void 0 ? void 0 : _a.line) {
+                if (!this.editor.updatingEditorContent) {
+                    for (let subscriber of this.subscribers) {
+                        subscriber(this);
+                    }
                 }
             }
-        }
+        });
     }
     onChange(callback) {
         this.subscribers.push(callback);
@@ -77,11 +80,12 @@ export class Editor {
         // this is how we update the interface. We look if the selectionchange and only if
         // it happened inside our component we dispatch a updateInterface().
         document.addEventListener("selectionchange", (ev) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b, _c;
             this.shouldRender = true;
             if (ev.target.activeElement === this.content) {
                 this.selection = document.getSelection();
-                (_a = this.context) === null || _a === void 0 ? void 0 : _a.update();
+                yield ((_a = this.context) === null || _a === void 0 ? void 0 : _a.update());
+                console.log((_c = (_b = this.context) === null || _b === void 0 ? void 0 : _b.location) === null || _c === void 0 ? void 0 : _c.word);
                 // await this.updateInterface();
             }
         }));
@@ -89,6 +93,7 @@ export class Editor {
             this.shouldRender = true;
         });
         this.content.addEventListener("keydown", (event) => {
+            var _a;
             const ev = event;
             this.shouldRender = false;
             if (this.isContentEmpty()) {
@@ -101,7 +106,7 @@ export class Editor {
             }
             // this.updateInterface();
             // these keybings will be handled in C#
-            if (this.isMentionPopoverOpen) {
+            if ((_a = this.context) === null || _a === void 0 ? void 0 : _a.isPopoverOpened) {
                 switch (ev.key) {
                     case "ArrowUp":
                     case "ArrowDown":
@@ -126,14 +131,14 @@ export class Editor {
             this.clearHighlightedWord();
         });
         this.content.addEventListener("click", (ev) => __awaiter(this, void 0, void 0, function* () {
-            var _b;
+            var _d;
             this.shouldRender = true;
-            (_b = this.context) === null || _b === void 0 ? void 0 : _b.update();
+            yield ((_d = this.context) === null || _d === void 0 ? void 0 : _d.update());
         }));
         this.content.addEventListener("focus", (ev) => __awaiter(this, void 0, void 0, function* () {
-            var _c;
+            var _e;
             this.shouldRender = true;
-            (_c = this.context) === null || _c === void 0 ? void 0 : _c.update();
+            yield ((_e = this.context) === null || _e === void 0 ? void 0 : _e.update());
         }));
     }
     initializeMutationObserver() {
@@ -180,32 +185,40 @@ export class Editor {
         this.mutationObserver.observe(this.content, config);
     }
     updateInterface(ctx) {
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             this.clearHighlightedWord();
             this.clearHighlightedLine();
             const { row, col, word, line } = ctx.location;
             if (this.isContentEmpty()) {
                 yield this.dotnetReference.invokeMethodAsync("OnUpdateStats", 1, 1);
+                if ((_a = this.context) === null || _a === void 0 ? void 0 : _a.isPopoverOpened) {
+                    console.log("closing it");
+                    yield this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
+                    this.context.isPopoverOpened = false;
+                }
                 return;
             }
             this.highlightCurrentLine(ctx);
             let workingWord = word;
-            if (!workingWord) {
-                if (col > 0) {
-                    // the caret is in the last line position
-                    workingWord = this.getWordAt(row, col - 1);
-                    if (!workingWord || this.isSpace(workingWord)) {
-                        return;
-                    }
-                }
-            }
+            // if (!workingWord) {
+            //   if (col > 0) {
+            //     // the caret is in the last line position
+            //     workingWord = this.getWordAt(row, col - 1);
+            //     if (!workingWord || this.isSpace(workingWord as HTMLElement)) {
+            //       return;
+            //     }
+            //   }
+            // }
             if (workingWord === null || workingWord === void 0 ? void 0 : workingWord.hasAttribute("data-mention")) {
                 this.highlightedMention = workingWord;
                 yield this.dotnetReference.invokeMethodAsync("OnMention", workingWord.innerText);
+                this.context.isPopoverOpened = true;
             }
             else {
-                if (this.isMentionPopoverOpen) {
+                if ((_b = this.context) === null || _b === void 0 ? void 0 : _b.isPopoverOpened) {
                     yield this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
+                    this.context.isPopoverOpened = false;
                 }
                 this.highlightWordUnderCaret(workingWord);
             }
@@ -319,6 +332,7 @@ export class Editor {
         return false;
     }
     getWordAt(row, col) {
+        var _a, _b;
         const line = this.getLineAt(row);
         for (let word of line.querySelectorAll("[data-word]")) {
             const start = parseInt(word.getAttribute("data-wordstart"), 10);
@@ -326,6 +340,10 @@ export class Editor {
             if (col >= start && col < end) {
                 return word;
             }
+        }
+        // if the caret is in the end of the line so try to return the previous word
+        if (((_a = line.innerText) === null || _a === void 0 ? void 0 : _a.length) === col) {
+            return (_b = line.lastElementChild) !== null && _b !== void 0 ? _b : undefined;
         }
     }
     getCaretOffsetInLine(line, sel) {
@@ -339,25 +357,28 @@ export class Editor {
         return clone.toString().length;
     }
     getEditorCaretLocation() {
-        if (this.selection) {
-            const sel = this.selection;
-            const node = sel.anchorNode;
-            const line = this.nodeToLine(node);
-            if (line && sel.isCollapsed) {
-                const row = Array.prototype.indexOf.call(this.content.children, line);
-                const col = this.getCaretOffsetInLine(line, sel);
-                const word = this.getWordAt(row, col);
-                if (row >= 0) {
-                    return {
-                        row,
-                        col,
-                        line,
-                        word,
-                    };
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.selection) {
+                const sel = this.selection;
+                const node = sel.anchorNode;
+                const line = this.nodeToLine(node);
+                if (line && sel.isCollapsed) {
+                    const row = Array.prototype.indexOf.call(this.content.children, line);
+                    yield this.dotnetReference.invokeMethodAsync("UpdateCaretPosition", sel);
+                    const col = this.getCaretOffsetInLine(line, sel);
+                    const word = this.getWordAt(row, col);
+                    if (row >= 0) {
+                        return {
+                            row,
+                            col,
+                            line,
+                            word,
+                        };
+                    }
                 }
             }
-        }
-        return { row: 0, col: 0 };
+            return { row: 0, col: 0 };
+        });
     }
     setCaretInLine(line, col) {
         const selection = window.getSelection();
@@ -447,16 +468,13 @@ export class Editor {
             line = newLine;
         }
         const wordsInLine = line.children.length;
-        let start = 0;
-        for (let [index, token] of tokens.entries()) {
-            const node = line.children[index];
-            const len = token.value.length;
+        for (let token of tokens) {
+            const node = line.children[token.index];
             const el = this.createTextNodeFromToken(token, {
-                index,
-                start,
-                end: start + len,
+                index: token.index,
+                start: token.start,
+                end: token.end,
             });
-            start += len;
             if (node === undefined) {
                 line.appendChild(el);
                 continue;
@@ -492,10 +510,6 @@ export class Editor {
                 yield this.emitEditorUpdate();
             }
         });
-    }
-    get isMentionPopoverOpen() {
-        var _a, _b;
-        return (_b = (_a = this.popover) === null || _a === void 0 ? void 0 : _a.classList.contains("mud-popover-open")) !== null && _b !== void 0 ? _b : false;
     }
     initializeMentionPopover() {
         var _a;
@@ -540,6 +554,7 @@ export class Editor {
             const rect = this.highlightedMention.getBoundingClientRect();
             this.popover.style.top = `${rect.top - height - 2}px`;
             this.popover.style.left = `${rect.left}px`;
+            this.context.isPopoverOpened = true;
         }
     }
 }

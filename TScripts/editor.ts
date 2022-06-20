@@ -1,9 +1,3 @@
-declare global {
-  interface Window {
-    mudpopoverHelper: any;
-  }
-}
-
 // this enum is defined in MentionTextare.razor.cs
 enum TokenType {
   Mention = 0,
@@ -13,6 +7,9 @@ enum TokenType {
 interface Token {
   type: TokenType;
   value: string;
+  index: number;
+  start: number;
+  end: number;
 }
 
 interface EditorLocation {
@@ -24,13 +21,14 @@ interface EditorLocation {
 
 export class EditorContext {
   location?: EditorLocation;
+  isPopoverOpened = false;
 
   subscribers: Function[] = [];
 
   constructor(public editor: Editor) {}
 
-  update() {
-    this.location = this.editor.getEditorCaretLocation();
+  async update() {
+    this.location = await this.editor.getEditorCaretLocation();
     if (this.location?.line) {
       if (!this.editor.updatingEditorContent) {
         for (let subscriber of this.subscribers) {
@@ -113,7 +111,8 @@ export class Editor {
       this.shouldRender = true;
       if ((ev.target as Document).activeElement === this.content) {
         this.selection = document.getSelection();
-        this.context?.update();
+        await this.context?.update();
+        console.log(this.context?.location?.word);
         // await this.updateInterface();
       }
     });
@@ -137,7 +136,7 @@ export class Editor {
 
       // this.updateInterface();
       // these keybings will be handled in C#
-      if (this.isMentionPopoverOpen) {
+      if (this.context?.isPopoverOpened) {
         switch (ev.key) {
           case "ArrowUp":
           case "ArrowDown":
@@ -165,12 +164,12 @@ export class Editor {
 
     this.content.addEventListener("click", async (ev) => {
       this.shouldRender = true;
-      this.context?.update();
+      await this.context?.update();
     });
 
     this.content.addEventListener("focus", async (ev) => {
       this.shouldRender = true;
-      this.context?.update();
+      await this.context?.update();
     });
   }
 
@@ -230,20 +229,25 @@ export class Editor {
 
     if (this.isContentEmpty()) {
       await this.dotnetReference.invokeMethodAsync("OnUpdateStats", 1, 1);
+      if (this.context?.isPopoverOpened) {
+        console.log("closing it")
+        await this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
+        this.context.isPopoverOpened = false;
+      }
       return;
     }
     this.highlightCurrentLine(ctx);
 
     let workingWord = word;
-    if (!workingWord) {
-      if (col > 0) {
-        // the caret is in the last line position
-        workingWord = this.getWordAt(row, col - 1);
-        if (!workingWord || this.isSpace(workingWord as HTMLElement)) {
-          return;
-        }
-      }
-    }
+    // if (!workingWord) {
+    //   if (col > 0) {
+    //     // the caret is in the last line position
+    //     workingWord = this.getWordAt(row, col - 1);
+    //     if (!workingWord || this.isSpace(workingWord as HTMLElement)) {
+    //       return;
+    //     }
+    //   }
+    // }
 
     if (workingWord?.hasAttribute("data-mention")) {
       this.highlightedMention = workingWord;
@@ -252,9 +256,11 @@ export class Editor {
         "OnMention",
         (workingWord as HTMLElement).innerText
       );
+      this.context!.isPopoverOpened = true;
     } else {
-      if (this.isMentionPopoverOpen) {
+      if (this.context?.isPopoverOpened) {
         await this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
+        this.context.isPopoverOpened = false;
       }
       this.highlightWordUnderCaret(workingWord as HTMLElement);
     }
@@ -389,6 +395,11 @@ export class Editor {
         return word;
       }
     }
+
+    // if the caret is in the end of the line so try to return the previous word
+    if ((line as HTMLElement).innerText?.length === col) {
+      return line.lastElementChild ?? undefined;
+    }
   }
 
   getCaretOffsetInLine(line: Element, sel: Selection) {
@@ -402,7 +413,7 @@ export class Editor {
     return clone.toString().length;
   }
 
-  getEditorCaretLocation(): EditorLocation {
+  async getEditorCaretLocation(): Promise<EditorLocation> {
     if (this.selection) {
       const sel = this.selection;
       const node = sel.anchorNode;
@@ -410,6 +421,9 @@ export class Editor {
 
       if (line && sel.isCollapsed) {
         const row = Array.prototype.indexOf.call(this.content!.children, line);
+
+        await this.dotnetReference.invokeMethodAsync("UpdateCaretPosition", sel);
+
         const col = this.getCaretOffsetInLine(line, sel);
         const word = this.getWordAt(row, col);
 
@@ -528,18 +542,14 @@ export class Editor {
     }
 
     const wordsInLine = line.children.length;
-    let start = 0;
-
-    for (let [index, token] of tokens.entries()) {
-      const node = line.children[index];
-      const len = token.value.length;
+    for (let token of tokens) {
+      const node = line.children[token.index];
 
       const el = this.createTextNodeFromToken(token, {
-        index,
-        start,
-        end: start + len,
+        index: token.index,
+        start: token.start,
+        end: token.end,
       });
-      start += len;
 
       if (node === undefined) {
         line.appendChild(el);
@@ -582,10 +592,6 @@ export class Editor {
 
       await this.emitEditorUpdate();
     }
-  }
-
-  get isMentionPopoverOpen() {
-    return this.popover?.classList.contains("mud-popover-open") ?? false;
   }
 
   initializeMentionPopover() {
@@ -641,6 +647,7 @@ export class Editor {
       const rect = this.highlightedMention!.getBoundingClientRect();
       this.popover.style.top = `${rect.top - height - 2}px`;
       this.popover.style.left = `${rect.left}px`;
+      this.context!.isPopoverOpened = true;
     }
   }
 }

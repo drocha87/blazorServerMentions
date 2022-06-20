@@ -39,8 +39,9 @@
         },
         {
             "label": "watch-ts",
-            "command": "npx tsc -w",
+            "command": "C:\\Program Files\\nodejs\\npx.cmd",
             "type": "process",
+            "args": ["tsc", "-w"],
             "runOptions": {
                 "runOn": "folderOpen",
             }

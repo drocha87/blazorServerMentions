@@ -55,32 +55,33 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
 
     private string? CurrentWord { get; set; }
 
+    public class Line
+    {
+        public List<Token>? Tokens { get; set; }
+    }
+    private List<Line>? _lines;
+
     private IEnumerable<T>? _suggestions;
     private object SelectedSuggestionIndex { get; set; } = 0;
 
-    private IJSObjectReference _jsEditor;
-    private IJSObjectReference _jsEditorContext;
-
-    private double _popoverLeftPosition = 0;
-    private double _popoverTopPosition = 0;
-    private string PopoverPositionStyle => $"left: {_popoverLeftPosition}px; top: {_popoverTopPosition}px";
+    private IJSObjectReference? _jsEditor;
+    private IJSObjectReference? _jsEditorContext;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _jsEditor = await JS.InvokeAsync<IJSObjectReference>("import", "./scripts/components/editor.js");
-            // _jsEditorContext = await JS.InvokeAsync<IJSObjectReference>("import", "./scripts/components/context.js");
-
             var reference = DotNetObjectReference.Create(this);
             await _jsEditor.InvokeVoidAsync("editor.initialize", reference);
+            _lines = new();
         }
         await base.OnAfterRenderAsync(firstRender);
     }
 
     public async Task<string> GetContent()
     {
-        var content = await JS.InvokeAsync<string>("mentionEditor.getContent");
+        var content = await _jsEditor!.InvokeAsync<string>("editor.getContent");
         return content;
     }
 
@@ -116,11 +117,11 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
 
     public async Task OnItemSelected(T item)
     {
-        await JS.InvokeVoidAsync("mentionEditor.insertMentionAtHighlighted", item.Username!);
+        await _jsEditor!.InvokeVoidAsync("editor.insertMentionAtHighlighted", item.Username!);
         await InvokeAsync(ResetMentions);
     }
 
-    private void ResetMentions()
+    private async Task ResetMentions()
     {
         if (_showMentionBox)
         {
@@ -129,6 +130,7 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
             _suggestions = null;
             SelectedSuggestionIndex = 0;
             CurrentWord = null;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -184,6 +186,10 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
     {
         public TokenType Type { get; set; } = TokenType.Text;
         public string Value { get; set; } = null!;
+
+        public int Index { get; set; }
+        public int Start { get; set; }
+        public int End { get; set; }
     }
 
     public enum TokenType
@@ -201,24 +207,34 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
             // FIXME: for some reason if I have an empty space followed by a new line
             // I'll have an additional string with length 0. It should not happen, I think
             // the problem is with the regex I'm using to split the text.
-            string[] parts = Regex.Split(text, @"([.,;\s])");
-            foreach (var part in parts)
+            IEnumerable<string> parts = Regex.Split(text, @"([.,;\s])").Where(x => x.Length > 0);
+
+            int offset = 0;
+            foreach (var (part, index) in parts.Select((v, i) => (v, i)))
             {
-                if (part.Length > 0)
+                var end = part.Length;
+                tokens.Add(new()
                 {
-                    tokens.Add(new()
+                    Type = part switch
                     {
-                        Type = part switch
-                        {
-                            var x when x.StartsWith("@") => TokenType.Mention,
-                            _ => TokenType.Text,
-                        },
-                        Value = part
-                    });
-                }
+                        var x when x.StartsWith("@") => TokenType.Mention,
+                        _ => TokenType.Text,
+                    },
+                    Value = part,
+                    Index = index,
+                    Start = offset,
+                    End = offset + end,
+                });
+                offset += end;
             }
         }
         return Task.FromResult(tokens);
+    }
+
+    [JSInvokable]
+    public async Task UpdateCaretPosition(object selection)
+    {
+        Console.WriteLine(selection);
     }
 
     public class MentionPopover
@@ -242,15 +258,6 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
         var isMentionBoxOpened = _showMentionBox;
         StartTimer();
         await InvokeAsync(OpenMentionBox);
-    }
-
-    [JSInvokable]
-    public async Task SetPopoverPosition(double top, double left)
-    {
-        Console.WriteLine($"top: {top}; left: {left}");
-        _popoverTopPosition = top;
-        _popoverLeftPosition = left;
-        await InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]
