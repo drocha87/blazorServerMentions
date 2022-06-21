@@ -53,7 +53,6 @@ export class Editor {
                     return;
                 }
             }
-            console.log(event);
             // these keybings will be handled in C#
             if ((_a = this.popover) === null || _a === void 0 ? void 0 : _a.classList.contains("mud-popover-open")) {
                 switch (ev.key) {

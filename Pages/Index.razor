@@ -51,15 +51,14 @@
             </SuggestionContentItem>
         </MentionTextArea>
     </div>
-    <MudStack Row Class="mt-4">
-        <MudCheckBox T="bool" @bind-Checked="@_highlightWord" Label="Highlight Word" />
-        <MudCheckBox T="bool" @bind-Checked="@_highlightLine" Label="Highlight Line" />
-        <MudSpacer></MudSpacer>
 
+    <MudStack Row Class="mt-4">
+        <MudSpacer></MudSpacer>
         <MudButton Variant="Variant.Filled" DisableElevation OnClick="GetContent">
             Get Text Editor Content
         </MudButton>
     </MudStack>
+
     <pre class="mt-4 border pa-4 rounded">
         @if (!string.IsNullOrEmpty(Content))
         {
