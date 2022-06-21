@@ -3,12 +3,7 @@
 <MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
 
 <div class="absolute" id="editor-popover-container">
-    <MudPopover
-        Open="@_showMentionBox"
-        OverflowBehavior="OverflowBehavior.FlipAlways"
-        AnchorOrigin="Origin.TopLeft"
-        TransformOrigin="Origin.BottomLeft">
-
+    <MudPopover Open="@_showMentionBox" >
         <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
             <MudListSubheader>
                 Members
@@ -59,21 +54,10 @@
 <div class="editor-container">
     <div @ref="_editor"
          class="editor editor-typo"
-         contentEditable
+         contenteditable
          data-editor
          data-highlightword="@HighlightWord"
          data-highlightline="@HighlightLine"
          @onkeydown="CheckKey">
-    </div>
-
-    <div id="editor-stats" class="d-flex editor-stats px-2 pt-1">
-        @* @if (!string.IsNullOrEmpty(@_currentWord))
-        {
-            <div>Current Word: @_currentWord</div>
-        } *@
-
-        <div class="ml-4">Ln @_currentLine</div>
-        <div class="mr-1">,</div>
-        <div>Col @_currentCol</div>
     </div>
 </div>

@@ -84,7 +84,6 @@ public class ProfileService
     public Task<List<Profile>> GetProfiles(string filter, int limit = 5)
     {
         string pattern = filter ?? @"^(?!\s*$).+";
-
         Regex rg = new(pattern, RegexOptions.IgnoreCase);
 
         return Task.FromResult(Profiles.Where(x => rg.IsMatch(x.Username!)).Take(limit).ToList());

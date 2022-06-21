@@ -74,16 +74,18 @@
     private bool _highlightWord = true;
     private bool _highlightLine = true;
 
-    private MentionTextArea<Profile> _mention;
+    private MentionTextArea<Profile>? _mention;
 
-    private async Task<IEnumerable<Profile>?> SearchFunc(string query)
+    private async Task<IEnumerable<Profile>> SearchFunc(string query)
     {
         return await ProfileSvc.GetProfiles(query, limit: 5);
     }
 
     private async Task GetContent()
     {
-        Content = await _mention.GetContent();
+        if (_mention is not null)
+        {
+            Content = await _mention.GetContent();
+        }
     }
-
 }
