@@ -10,7 +10,7 @@ and other completions, it's implemented using [MudBlazor](https://mudblazor.com/
 and a content editable.
 
 - [ ] Reduce the javascript size
-- [ ] Support others characters to open the popover
+- [x] Support others characters to open the popover
 - [x] Get the editor content as a string
 - [ ] Get the editor content as a tree of tokens
 - [ ] Show a tooltip when the mouse is over a `mention`
