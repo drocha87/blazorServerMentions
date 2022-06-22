@@ -32,7 +32,6 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
     private string _mentionContainerId = $"mention-{Guid.NewGuid()}";
 
-    private ElementReference? _editor;
     private bool _showMentionBox = false;
 
     private string? CurrentWord { get; set; }
@@ -182,7 +181,7 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
     public Task<List<Token>> Tokenizer(string? text)
     {
         List<Token> tokens = new();
-        if (text is not null && _editor is not null)
+        if (text is not null)
         {
             // FIXME: for some reason if I have an empty space followed by a new line
             // I'll have an additional string with length 0. It should not happen, I think

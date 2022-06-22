@@ -38,17 +38,11 @@
                     </MudText>
                 </MudListItem>
             }
-
-            @* TODO: add a footer *@
         </MudList>
     </MudPopover>
 </div>
 
 <div class="editor-container">
-    <div @ref="_editor"
-         class="editor editor-typo"
-         contenteditable
-         data-editor
-         @onkeydown="CheckKey">
+    <div class="editor editor-typo" contenteditable data-editor @onkeydown="CheckKey">
     </div>
 </div>
