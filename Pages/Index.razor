@@ -1,9 +1,7 @@
 ﻿@page "/"
 
-@using blazorServerMentions.Data;
 @using blazorServerMentions.Components;
-
-@inject ProfileService ProfileSvc
+@using blazorServerMentions.Data;
 
 <PageTitle>Mentions</PageTitle>
 
@@ -21,11 +19,7 @@
     </MudAlert>
 
     <div class="mt-8">
-        <MentionTextArea @ref="_mention"
-                         T="Profile"
-                         SearchFunc="@SearchFunc"
-                         HighlightWord="@_highlightWord"
-                         HighlightLine="@_highlightLine" >
+        <MentionTextarea @ref="_mention" SearchFunc="SearchItems">
             <SuggestionContentItem>
                 <MudStack Row AlignItems="AlignItems.Center">
                     @if (!string.IsNullOrEmpty(context.Avatar))
@@ -40,16 +34,16 @@
                     }
 
                     <MudText Typo="Typo.body1">
-                        @context.Name
+                        @context.Text
                     </MudText>
 
                     <MudSpacer></MudSpacer>
                     <MudText Typo="Typo.caption">
-                        @@@context.Username
+                        @@@context.Description
                     </MudText>
                 </MudStack>
             </SuggestionContentItem>
-        </MentionTextArea>
+        </MentionTextarea>
     </div>
 
     <MudStack Row Class="mt-4">
@@ -66,25 +60,3 @@
         }
     </pre>
 </MudContainer>
-
-@code {
-    public string? Content { get; set; }
-
-    private bool _highlightWord = true;
-    private bool _highlightLine = true;
-
-    private MentionTextArea<Profile>? _mention;
-
-    private async Task<IEnumerable<Profile>> SearchFunc(string query)
-    {
-        return await ProfileSvc.GetProfiles(query, limit: 5);
-    }
-
-    private async Task GetContent()
-    {
-        if (_mention is not null)
-        {
-            Content = await _mention.GetContent();
-        }
-    }
-}

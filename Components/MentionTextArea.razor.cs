@@ -3,58 +3,39 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-using MudBlazor;
-
 namespace blazorServerMentions.Components;
 
-public interface IMentionItem
+public interface IMention
 {
-    // FIXME: this property should be named differently
-    string Username { get; set; }
+    string Text { get; set; }
+    string Value { get; set; }
+    string Description { get; set; }
+    string? Avatar { get; set; }
 }
 
-public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
-    where T : IMentionItem
+public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 {
     [Inject] IJSRuntime JS { get; set; } = null!;
 
-    private string? _text;
-
-    [Parameter]
-    public string? Text
-    {
-        get => _text;
-        set
-        {
-            _text = value;
-            TextChanged.InvokeAsync(_text).AndForget();
-        }
-    }
     [Parameter] public EventCallback<string> TextChanged { get; set; }
 
     [Parameter] public string? Placeholder { get; set; }
+
     [Parameter] public string Delimiters { get; set; } = @"([.,;\s])";
     [Parameter] public string Markers { get; set; } = "@#";
 
-    [Parameter] public bool HighlightWord { get; set; } = false;
-    [Parameter] public bool HighlightLine { get; set; } = false;
-
     [Parameter] public int DebounceTimer { get; set; } = 500;
     [Parameter] public int MaxSuggestions { get; set; } = 5;
-    [Parameter] public Func<string, Task<IEnumerable<T>>> SearchFunc { get; set; } = null!;
 
-    [Parameter] public RenderFragment<T>? SuggestionContentItem { get; set; }
+    [Parameter] public Func<char, string, Task<IEnumerable<IMention>>>? SearchFunc { get; set; }
+    [Parameter] public RenderFragment<IMention>? SuggestionContentItem { get; set; }
 
     private ElementReference? _editor;
     private bool _showMentionBox = false;
 
     private string? CurrentWord { get; set; }
 
-    public class Line
-    {
-        public List<Token>? Tokens { get; set; }
-    }
-    private IEnumerable<T> _suggestions = Enumerable.Empty<T>();
+    private IEnumerable<IMention> _suggestions = Enumerable.Empty<IMention>();
     private object SelectedSuggestionIndex { get; set; } = 0;
 
     private IJSObjectReference? _jsEditor;
@@ -92,7 +73,7 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
         {
             _timer.Dispose();
             _timer = null;
-            _suggestions = Enumerable.Empty<T>();
+            _suggestions = Enumerable.Empty<IMention>();
         }
     }
 
@@ -101,14 +82,17 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
         DisposeTimer();
         if (!string.IsNullOrEmpty(CurrentWord) && SearchFunc is not null)
         {
-            _suggestions = await SearchFunc(CurrentWord[1..]);
+            var marker = CurrentWord[0];
+            var query = CurrentWord[1..];
+
+            _suggestions = await SearchFunc(marker, query);
             await InvokeAsync(StateHasChanged);
         }
     }
 
-    public async Task OnItemSelected(T item)
+    public async Task OnItemSelected(IMention item)
     {
-        await _jsEditor!.InvokeVoidAsync("editor.insertMentionAtHighlighted", item.Username!);
+        await _jsEditor!.InvokeVoidAsync("editor.insertMentionAtHighlighted", item.Value);
         await InvokeAsync(ResetMentions);
     }
 
@@ -118,7 +102,7 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
         {
             DisposeTimer();
             _showMentionBox = false;
-            _suggestions = Enumerable.Empty<T>();
+            _suggestions = Enumerable.Empty<IMention>();
             SelectedSuggestionIndex = 0;
             CurrentWord = null;
             await InvokeAsync(StateHasChanged);
@@ -130,7 +114,7 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
         if (!_showMentionBox)
         {
             _showMentionBox = true;
-            _suggestions = Enumerable.Empty<T>();
+            _suggestions = Enumerable.Empty<IMention>();
         }
     }
 
@@ -213,7 +197,7 @@ public partial class MentionTextArea<T> : ComponentBase, IAsyncDisposable
                 };
                 if (Markers.Contains(token.Value[0]))
                 {
-                    token.Attributes.Add("data-mention", "");
+                    token.Attributes.Add("data-mention", $"{token.Value[0]}");
                 }
 
                 tokens.Add(token);

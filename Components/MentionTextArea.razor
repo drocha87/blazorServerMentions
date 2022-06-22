@@ -1,18 +1,17 @@
-@typeparam T
-
 <MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
 
 <div class="absolute" id="editor-popover-container">
     <MudPopover Open="@_showMentionBox" >
         <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
-            <MudListSubheader>
+            @* <MudListSubheader>
                 Members
-            </MudListSubheader>
-            <MudDivider />
+            </MudListSubheader> *@
+
+            @* <MudDivider /> *@
 
             @if (_suggestions is not null)
             {
-                @if (_suggestions.Count() == 0)
+                @if (_suggestions.Count() == 0 && CurrentWord is not null)
                 {
                     <MudListItem>
                         <MudText Typo="Typo.subtitle2">
@@ -31,7 +30,7 @@
                             }
                             else
                             {
-                                <span>@item.Username</span>
+                                <span>@item.Text</span>
                             }
                         </MudListItem>
                     }
@@ -56,8 +55,6 @@
          class="editor editor-typo"
          contenteditable
          data-editor
-         data-highlightword="@HighlightWord"
-         data-highlightline="@HighlightLine"
          @onkeydown="CheckKey">
     </div>
 </div>

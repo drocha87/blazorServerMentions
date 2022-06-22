@@ -286,7 +286,8 @@ export class Editor {
     insertMentionAtHighlighted(username) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.highlightedMention) {
-                this.highlightedMention.innerText = "@" + username;
+                const marker = this.highlightedMention.getAttribute("data-mention");
+                this.highlightedMention.innerText = marker + username;
                 const selection = window.getSelection();
                 const range = new Range();
                 range.setEndAfter(this.highlightedMention);

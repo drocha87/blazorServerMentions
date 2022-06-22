@@ -91,7 +91,9 @@ export class Editor {
             break;
 
           case " ":
-            await this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
+            await this.dotnetReference.invokeMethodAsync(
+              "OnCloseMentionPopover"
+            );
             break;
         }
       }
@@ -334,7 +336,8 @@ export class Editor {
 
   async insertMentionAtHighlighted(username: string) {
     if (this.highlightedMention) {
-      (this.highlightedMention as HTMLElement).innerText = "@" + username;
+      const marker = this.highlightedMention.getAttribute("data-mention");
+      (this.highlightedMention as HTMLElement).innerText = marker + username;
 
       const selection = window.getSelection();
 

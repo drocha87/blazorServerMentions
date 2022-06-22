@@ -4,19 +4,12 @@ div[data-line] {
   line-height: calc(1rem + 6px);
 }
 
-span[data-word] {
-  /* line-height: calc(1rem - 2px); */
-  /* border: 1px solid transparent; */
-}
+span[data-word] {}
 
-div[contenteditable][data-highlightword] div[data-line] span[data-currentword] {
-  background-color: #e5e5e5;
-}
-
-div[contenteditable] div[data-line] span[data-mention] {
+span[data-mention="@"] {
   background-color: #bde0fe;
 }
 
-div[contenteditable][data-highlightline] div[data-currentline] {
-  border-color: #e5e5e5;
+span[data-mention="#"] {
+  background-color: red;
 }
