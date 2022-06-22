@@ -287,14 +287,16 @@ export class Editor {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.highlightedMention) {
                 const marker = this.highlightedMention.getAttribute("data-mention");
-                this.highlightedMention.innerText = marker + username;
+                this.highlightedMention.innerText = marker + username + " ";
                 const selection = window.getSelection();
-                const range = new Range();
-                range.setEndAfter(this.highlightedMention);
-                range.collapse();
-                selection.removeAllRanges();
-                selection.addRange(range);
-                yield this.updateEditorContent();
+                if (selection) {
+                    const range = new Range();
+                    range.setEndAfter(this.highlightedMention);
+                    range.collapse();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    yield this.updateEditorContent();
+                }
             }
         });
     }

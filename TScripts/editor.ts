@@ -337,18 +337,19 @@ export class Editor {
   async insertMentionAtHighlighted(username: string) {
     if (this.highlightedMention) {
       const marker = this.highlightedMention.getAttribute("data-mention");
-      (this.highlightedMention as HTMLElement).innerText = marker + username;
+      (this.highlightedMention as HTMLElement).innerText = marker + username + " ";
 
       const selection = window.getSelection();
+      if (selection) {
+        const range = new Range();
+        range.setEndAfter(this.highlightedMention);
+        range.collapse();
 
-      const range = new Range();
-      range.setEndAfter(this.highlightedMention);
-      range.collapse();
+        selection.removeAllRanges();
+        selection.addRange(range);
 
-      selection!.removeAllRanges();
-      selection!.addRange(range);
-
-      await this.updateEditorContent();
+        await this.updateEditorContent();
+      }
     }
   }
 
