@@ -90,13 +90,14 @@ public class ProfileService
         public string? Avatar { get; set; }
     }
 
-    public Task<List<ProfileMentionDTO>> GetProfilesAsMentions(string filter, int limit = 5)
+    public Task<List<ProfileMentionDTO>> GetProfilesAsMentions(string query, int limit = 5)
     {
-        string pattern = filter ?? @"^(?!\s*$).+";
+        string pattern = query ?? @"^(?!\s*$).+";
         Regex rg = new(pattern, RegexOptions.IgnoreCase);
+
         return Task.FromResult(
-            Profiles.Where(
-                x => rg.IsMatch(x.Name!)).Take(limit).ToList().ConvertAll(
+            Profiles.Where(x => rg.IsMatch(x.Username))
+                .Take(limit).ToList().ConvertAll(
                     p => new ProfileMentionDTO
                     {
                         Text = p.Name,
