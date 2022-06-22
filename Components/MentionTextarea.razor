@@ -1,7 +1,7 @@
 <MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
 
-<div class="absolute" id="editor-popover-container">
-    <MudPopover Open="@_showMentionBox" >
+<div class="absolute" id="@_mentionContainerId">
+    <MudPopover Open="@_showMentionBox">
         <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
             @if (_suggestions is not null)
             {

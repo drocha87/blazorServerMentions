@@ -30,6 +30,8 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
     [Parameter] public Func<char, string, Task<IEnumerable<IMention>>>? SearchFunc { get; set; }
     [Parameter] public RenderFragment<IMention>? SuggestionContentItem { get; set; }
 
+    private string _mentionContainerId = $"mention-{Guid.NewGuid()}";
+
     private ElementReference? _editor;
     private bool _showMentionBox = false;
 
@@ -50,7 +52,7 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
             var reference = DotNetObjectReference.Create(this);
             await _jsEditor.InvokeVoidAsync("editor.initialize", reference);
-            await _jsPopoverPlacer.InvokeVoidAsync("popoverPlacer.initialize", "editor-popover-container");
+            await _jsPopoverPlacer.InvokeVoidAsync("popoverPlacer.initialize", _mentionContainerId);
         }
         await base.OnAfterRenderAsync(firstRender);
     }
