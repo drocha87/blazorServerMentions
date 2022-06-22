@@ -11,5 +11,5 @@ span[data-mention="@"] {
 }
 
 span[data-mention="#"] {
-  background-color: red;
+  background-color: #fbc4ab;
 }
