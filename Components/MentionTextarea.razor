@@ -3,12 +3,6 @@
 <div class="absolute" id="editor-popover-container">
     <MudPopover Open="@_showMentionBox" >
         <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
-            @* <MudListSubheader>
-                Members
-            </MudListSubheader> *@
-
-            @* <MudDivider /> *@
-
             @if (_suggestions is not null)
             {
                 @if (_suggestions.Count() == 0 && CurrentWord is not null)

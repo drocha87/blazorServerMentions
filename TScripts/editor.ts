@@ -14,13 +14,13 @@ export class Editor {
   dotnetReference: any = null;
 
   content?: HTMLDivElement;
-  popover: HTMLElement | null = null;
   mutationObserver?: MutationObserver;
   selection: Selection | null = null;
   highlightedMention?: Element;
   location?: EditorLocation;
 
   editing = false;
+  isPopoverOpen: boolean = false;
 
   constructor() {
     if (typeof window.getSelection === "undefined") {
@@ -47,7 +47,6 @@ export class Editor {
 
     // start the editor with an empty line
     this.appendNewLineEditor();
-    this.initializeMentionPopover();
 
     const listener = this.content.addEventListener;
 
@@ -81,7 +80,7 @@ export class Editor {
       }
 
       // these keybings will be handled in C#
-      if (this.popover?.classList.contains("mud-popover-open")) {
+      if (this.isPopoverOpen) {
         switch (ev.key) {
           case "ArrowUp":
           case "ArrowDown":
@@ -122,9 +121,12 @@ export class Editor {
     const { word } = this.location!;
     if (word?.hasAttribute("data-mention")) {
       this.highlightedMention = word;
+      const rect = word.getBoundingClientRect();
       await this.dotnetReference.invokeMethodAsync(
         "OnMention",
-        (word as HTMLElement).innerText
+        (word as HTMLElement).innerText,
+        rect.top,
+        rect.left
       );
     }
   }
@@ -337,7 +339,8 @@ export class Editor {
   async insertMentionAtHighlighted(username: string) {
     if (this.highlightedMention) {
       const marker = this.highlightedMention.getAttribute("data-mention");
-      (this.highlightedMention as HTMLElement).innerText = marker + username + " ";
+      (this.highlightedMention as HTMLElement).innerText =
+        marker + username + " ";
 
       const selection = window.getSelection();
       if (selection) {
@@ -353,60 +356,8 @@ export class Editor {
     }
   }
 
-  initializeMentionPopover() {
-    // get the popover content, so we can positionate it according to the mention
-    let popoverElement = document.getElementById(
-      "editor-popover-container"
-    )?.firstElementChild;
-
-    if (!popoverElement) {
-      throw new Error("popoverElement is not in the DOM");
-    }
-
-    // strip the first 8 "popover-" string because the popover content use the same guid defined after it
-    let popoverId = popoverElement.id.substring(8);
-    this.popover = document.getElementById(`popovercontent-${popoverId}`);
-
-    if (this.popover) {
-      (window as any).mudPopover.disconnect(popoverId);
-
-      const config: MutationObserverInit = {
-        attributes: true,
-      };
-
-      const mutationObserver = new MutationObserver(
-        async (mutationList, observe) => {
-          if (editor.highlightedMention) {
-            for (const mutation of mutationList) {
-              if (mutation.type === "attributes") {
-                const el = mutation.target as HTMLElement;
-                if (el.classList.contains("mud-popover-open")) {
-                  const selfRect = this.popover!.getBoundingClientRect();
-                  this.placePopover(selfRect.height);
-                }
-              }
-            }
-          }
-        }
-      );
-      mutationObserver.observe(this.popover, config);
-
-      const resizeObserver = new ResizeObserver(async (entries) => {
-        const entry = entries[0];
-        if (editor.highlightedMention) {
-          this.placePopover(entry.contentRect.height);
-        }
-      });
-      resizeObserver.observe(this.popover);
-    }
-  }
-
-  placePopover(height: number) {
-    if (this.popover) {
-      const rect = this.highlightedMention!.getBoundingClientRect();
-      this.popover.style.top = `${rect.top - height - 2}px`;
-      this.popover.style.left = `${rect.left}px`;
-    }
+  async isPopoverVisible(status: boolean) {
+    this.isPopoverOpen = status;
   }
 }
 

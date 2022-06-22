@@ -39,14 +39,18 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
     private object SelectedSuggestionIndex { get; set; } = 0;
 
     private IJSObjectReference? _jsEditor;
+    private IJSObjectReference? _jsPopoverPlacer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _jsEditor = await JS.InvokeAsync<IJSObjectReference>("import", "./scripts/components/editor.js");
+            _jsPopoverPlacer = await JS.InvokeAsync<IJSObjectReference>("import", "./scripts/components/PopoverPlacer.js");
+
             var reference = DotNetObjectReference.Create(this);
             await _jsEditor.InvokeVoidAsync("editor.initialize", reference);
+            await _jsPopoverPlacer.InvokeVoidAsync("popoverPlacer.initialize", "editor-popover-container");
         }
         await base.OnAfterRenderAsync(firstRender);
     }
@@ -105,16 +109,19 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
             _suggestions = Enumerable.Empty<IMention>();
             SelectedSuggestionIndex = 0;
             CurrentWord = null;
+            await _jsEditor!.InvokeVoidAsync("editor.isPopoverVisible", false);
             await InvokeAsync(StateHasChanged);
         }
     }
 
-    private void OpenMentionBox()
+    private async Task OpenMentionBox()
     {
         if (!_showMentionBox)
         {
             _showMentionBox = true;
             _suggestions = Enumerable.Empty<IMention>();
+            await _jsEditor!.InvokeVoidAsync("editor.isPopoverVisible", true);
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -223,11 +230,12 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
-    public async Task OnMention(string word)
+    public async Task OnMention(string word, double top, double left)
     {
         CurrentWord = word;
         var isMentionBoxOpened = _showMentionBox;
         StartTimer();
+        await _jsPopoverPlacer!.InvokeVoidAsync("popoverPlacer.updateOffsets", top, left);
         await InvokeAsync(OpenMentionBox);
     }
 

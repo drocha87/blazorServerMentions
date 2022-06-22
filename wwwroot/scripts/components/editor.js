@@ -10,9 +10,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 export class Editor {
     constructor() {
         this.dotnetReference = null;
-        this.popover = null;
         this.selection = null;
         this.editing = false;
+        this.isPopoverOpen = false;
         if (typeof window.getSelection === "undefined") {
             // we depend on window.getSelection existing
             throw new Error("your browser do not support window.getSelection! The editor will not work properly");
@@ -29,7 +29,6 @@ export class Editor {
         this.content = document.getElementsByClassName("editor")[0];
         // start the editor with an empty line
         this.appendNewLineEditor();
-        this.initializeMentionPopover();
         const listener = this.content.addEventListener;
         // XXX: if we don't filter this event we'll send at least two input events with the same data
         // this is breaking the flow and the layout of the editor
@@ -43,7 +42,6 @@ export class Editor {
         listener("focus", (_) => __awaiter(this, void 0, void 0, function* () { return yield this.update(); }));
         listener("click", (_) => __awaiter(this, void 0, void 0, function* () { return yield this.update(); }));
         listener("keydown", (event) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
             const ev = event;
             if (this.isContentEmpty()) {
                 // to keep the editor with at least one line we must disable backspace when the
@@ -54,7 +52,7 @@ export class Editor {
                 }
             }
             // these keybings will be handled in C#
-            if ((_a = this.popover) === null || _a === void 0 ? void 0 : _a.classList.contains("mud-popover-open")) {
+            if (this.isPopoverOpen) {
                 switch (ev.key) {
                     case "ArrowUp":
                     case "ArrowDown":
@@ -95,7 +93,8 @@ export class Editor {
             const { word } = this.location;
             if (word === null || word === void 0 ? void 0 : word.hasAttribute("data-mention")) {
                 this.highlightedMention = word;
-                yield this.dotnetReference.invokeMethodAsync("OnMention", word.innerText);
+                const rect = word.getBoundingClientRect();
+                yield this.dotnetReference.invokeMethodAsync("OnMention", word.innerText, rect.top, rect.left);
             }
         });
     }
@@ -287,7 +286,8 @@ export class Editor {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.highlightedMention) {
                 const marker = this.highlightedMention.getAttribute("data-mention");
-                this.highlightedMention.innerText = marker + username + " ";
+                this.highlightedMention.innerText =
+                    marker + username + " ";
                 const selection = window.getSelection();
                 if (selection) {
                     const range = new Range();
@@ -300,50 +300,10 @@ export class Editor {
             }
         });
     }
-    initializeMentionPopover() {
-        var _a;
-        // get the popover content, so we can positionate it according to the mention
-        let popoverElement = (_a = document.getElementById("editor-popover-container")) === null || _a === void 0 ? void 0 : _a.firstElementChild;
-        if (!popoverElement) {
-            throw new Error("popoverElement is not in the DOM");
-        }
-        // strip the first 8 "popover-" string because the popover content use the same guid defined after it
-        let popoverId = popoverElement.id.substring(8);
-        this.popover = document.getElementById(`popovercontent-${popoverId}`);
-        if (this.popover) {
-            window.mudPopover.disconnect(popoverId);
-            const config = {
-                attributes: true,
-            };
-            const mutationObserver = new MutationObserver((mutationList, observe) => __awaiter(this, void 0, void 0, function* () {
-                if (editor.highlightedMention) {
-                    for (const mutation of mutationList) {
-                        if (mutation.type === "attributes") {
-                            const el = mutation.target;
-                            if (el.classList.contains("mud-popover-open")) {
-                                const selfRect = this.popover.getBoundingClientRect();
-                                this.placePopover(selfRect.height);
-                            }
-                        }
-                    }
-                }
-            }));
-            mutationObserver.observe(this.popover, config);
-            const resizeObserver = new ResizeObserver((entries) => __awaiter(this, void 0, void 0, function* () {
-                const entry = entries[0];
-                if (editor.highlightedMention) {
-                    this.placePopover(entry.contentRect.height);
-                }
-            }));
-            resizeObserver.observe(this.popover);
-        }
-    }
-    placePopover(height) {
-        if (this.popover) {
-            const rect = this.highlightedMention.getBoundingClientRect();
-            this.popover.style.top = `${rect.top - height - 2}px`;
-            this.popover.style.left = `${rect.left}px`;
-        }
+    isPopoverVisible(status) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.isPopoverOpen = status;
+        });
     }
 }
 export const editor = new Editor();
