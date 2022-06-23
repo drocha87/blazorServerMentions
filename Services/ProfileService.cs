@@ -1,7 +1,8 @@
 using System.Text.RegularExpressions;
 using blazorServerMentions.Components;
+using blazorServerMentions.Data;
 
-namespace blazorServerMentions.Data;
+namespace blazorServerMentions.Services;
 
 public class ProfileService
 {
@@ -84,6 +85,7 @@ public class ProfileService
 
     public class ProfileMentionDTO : IMention
     {
+        public char Marker { get; set; } = '@';
         public string Text { get; set; } = null!;
         public string Value { get; set; } = null!;
         public string Description { get; set; } = null!;
