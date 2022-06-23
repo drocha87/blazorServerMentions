@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using blazorServerMentions.Data;
 using MudBlazor.Services;
+using blazorServerMentions.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
 builder.Services.AddSingleton<ProfileService>();
+builder.Services.AddSingleton<TagService>();
 builder.Services.AddMudServices();
 
 var app = builder.Build();

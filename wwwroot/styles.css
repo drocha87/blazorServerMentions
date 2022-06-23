@@ -1,10 +1,15 @@
 div[data-line] {
   padding: 0 10px;
-  border: 2px solid transparent;
+  /* border: 2px solid grey; */
   line-height: calc(1rem + 6px);
 }
 
 span[data-word] {}
+
+span[data-mention] {
+  padding: 0 2px;
+  border-radius: 4px;
+}
 
 span[data-mention="@"] {
   background-color: #bde0fe;
@@ -13,3 +18,13 @@ span[data-mention="@"] {
 span[data-mention="#"] {
   background-color: #fbc4ab;
 }
+
+/* span[data-mention="!"] {
+  background-color: #e63946;
+  color: white;
+}
+
+span[data-mention="$"] {
+  background-color: #ffbe0b;
+  color: white;
+} */

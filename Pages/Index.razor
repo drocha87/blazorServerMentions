@@ -2,6 +2,7 @@
 
 @using blazorServerMentions.Components;
 @using blazorServerMentions.Data;
+@using blazorServerMentions.Services;
 
 <PageTitle>Mentions</PageTitle>
 
@@ -19,7 +20,7 @@
     </MudAlert>
 
     <div class="mt-8">
-        <MentionTextarea @ref="_mention" SearchFunc="SearchItems">
+        <MentionTextarea @ref="_mention" Markers="@("@#")" SearchFunc="SearchItems">
             <SuggestionContentItem>
                 <MudStack Row AlignItems="AlignItems.Center">
                     @if (!string.IsNullOrEmpty(context.Avatar))
@@ -28,9 +29,12 @@
                     }
                     else
                     {
-                        <MudAvatar Size="Size.Small">
-                            <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small"/>
-                        </MudAvatar>
+                        @if (context.Marker == '@')
+                        {
+                            <MudAvatar Size="Size.Small">
+                                <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small"/>
+                            </MudAvatar>
+                        }
                     }
 
                     <MudText Typo="Typo.body1">
@@ -38,9 +42,12 @@
                     </MudText>
 
                     <MudSpacer></MudSpacer>
-                    <MudText Typo="Typo.caption">
-                        @@@context.Description
-                    </MudText>
+                    @if (!string.IsNullOrEmpty(context.Description))
+                    {
+                        <MudText Typo="Typo.caption">
+                            @context.Description
+                        </MudText>
+                    }
                 </MudStack>
             </SuggestionContentItem>
         </MentionTextarea>
