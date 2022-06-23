@@ -38,9 +38,21 @@ export class Editor {
                 yield this.updateEditorContent();
             }
         }));
-        listener("keyup", (_) => __awaiter(this, void 0, void 0, function* () { return yield this.update(); }));
-        listener("focus", (_) => __awaiter(this, void 0, void 0, function* () { return yield this.update(); }));
-        listener("click", (_) => __awaiter(this, void 0, void 0, function* () { return yield this.update(); }));
+        listener("keyup", (_) => __awaiter(this, void 0, void 0, function* () { return (this.location = this.getEditorCaretLocation()); }));
+        listener("focus", (_) => __awaiter(this, void 0, void 0, function* () { return (this.location = this.getEditorCaretLocation()); }));
+        listener("click", (_) => __awaiter(this, void 0, void 0, function* () { return (this.location = this.getEditorCaretLocation()); }));
+        listener("paste", (ev) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const text = (_a = ev.clipboardData) === null || _a === void 0 ? void 0 : _a.getData("text");
+            const selection = window.getSelection();
+            if (!(selection === null || selection === void 0 ? void 0 : selection.rangeCount))
+                return false;
+            selection.deleteFromDocument();
+            selection.getRangeAt(0).insertNode(document.createTextNode(text));
+            selection.collapseToEnd();
+            ev.preventDefault();
+            yield this.updateEditorContent();
+        }));
         listener("keydown", (event) => __awaiter(this, void 0, void 0, function* () {
             const ev = event;
             if (this.isContentEmpty()) {
@@ -60,21 +72,14 @@ export class Editor {
                     case "Escape":
                         ev.preventDefault();
                         break;
-                    case " ":
-                        yield this.dotnetReference.invokeMethodAsync("OnCloseMentionPopover");
-                        break;
+                    // case " ":
+                    //   await this.dotnetReference.invokeMethodAsync(
+                    //     "OnCloseMentionPopover"
+                    //   );
+                    //   break;
                 }
             }
         }));
-    }
-    update() {
-        var _a;
-        return __awaiter(this, void 0, void 0, function* () {
-            this.location = this.getEditorCaretLocation();
-            if (((_a = this.location) === null || _a === void 0 ? void 0 : _a.line) && !this.editing) {
-                yield this.updateInterface();
-            }
-        });
     }
     updateEditorContent() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -85,16 +90,6 @@ export class Editor {
                     const offset = this.getCaretOffsetInLine(line, selection);
                     yield this.emitEditorUpdate(line, offset);
                 }
-            }
-        });
-    }
-    updateInterface() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const { word } = this.location;
-            if (word === null || word === void 0 ? void 0 : word.hasAttribute("data-mention")) {
-                this.highlightedMention = word;
-                const rect = word.getBoundingClientRect();
-                yield this.dotnetReference.invokeMethodAsync("OnMention", word.innerText, rect.top, rect.left);
             }
         });
     }
@@ -252,6 +247,12 @@ export class Editor {
                         (_b = this.content) === null || _b === void 0 ? void 0 : _b.appendChild(newLine);
                     }
                     this.setCaretInLine(newLine, offset);
+                    this.location = this.getEditorCaretLocation();
+                    const { word } = this.location;
+                    if (word === null || word === void 0 ? void 0 : word.hasAttribute("data-mention")) {
+                        const rect = word === null || word === void 0 ? void 0 : word.getBoundingClientRect();
+                        yield this.dotnetReference.invokeMethodAsync("OnMention", word.innerText, rect.top, rect.left);
+                    }
                 }
             }
             finally {
@@ -284,14 +285,14 @@ export class Editor {
     }
     insertMentionAtHighlighted(username) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.highlightedMention) {
-                const marker = this.highlightedMention.getAttribute("data-mention");
-                this.highlightedMention.innerText =
-                    marker + username + " ";
+            const { word } = this.location;
+            if (word) {
+                const marker = word.getAttribute("data-mention");
+                word.innerText = marker + username + " ";
                 const selection = window.getSelection();
                 if (selection) {
                     const range = new Range();
-                    range.setEndAfter(this.highlightedMention);
+                    range.setEndAfter(word);
                     range.collapse();
                     selection.removeAllRanges();
                     selection.addRange(range);

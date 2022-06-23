@@ -16,7 +16,6 @@ export class Editor {
   content?: HTMLDivElement;
   mutationObserver?: MutationObserver;
   selection: Selection | null = null;
-  highlightedMention?: Element;
   location?: EditorLocation;
 
   editing = false;
@@ -63,9 +62,33 @@ export class Editor {
       }
     });
 
-    listener("keyup", async (_) => await this.update());
-    listener("focus", async (_) => await this.update());
-    listener("click", async (_) => await this.update());
+    listener(
+      "keyup",
+      async (_) => (this.location = this.getEditorCaretLocation())
+    );
+
+    listener(
+      "focus",
+      async (_) => (this.location = this.getEditorCaretLocation())
+    );
+
+    listener(
+      "click",
+      async (_) => (this.location = this.getEditorCaretLocation())
+    );
+
+    listener("paste", async (ev) => {
+      const text = ev.clipboardData?.getData("text");
+
+      const selection = window.getSelection();
+      if (!selection?.rangeCount) return false;
+      selection.deleteFromDocument();
+      selection.getRangeAt(0).insertNode(document.createTextNode(text!));
+      selection.collapseToEnd();
+
+      ev.preventDefault();
+      await this.updateEditorContent();
+    });
 
     listener("keydown", async (event) => {
       const ev = event as KeyboardEvent;
@@ -89,21 +112,14 @@ export class Editor {
             ev.preventDefault();
             break;
 
-          case " ":
-            await this.dotnetReference.invokeMethodAsync(
-              "OnCloseMentionPopover"
-            );
-            break;
+          // case " ":
+          //   await this.dotnetReference.invokeMethodAsync(
+          //     "OnCloseMentionPopover"
+          //   );
+          //   break;
         }
       }
     });
-  }
-
-  async update() {
-    this.location = this.getEditorCaretLocation();
-    if (this.location?.line && !this.editing) {
-      await this.updateInterface();
-    }
   }
 
   async updateEditorContent() {
@@ -114,20 +130,6 @@ export class Editor {
         const offset = this.getCaretOffsetInLine(line, selection);
         await this.emitEditorUpdate(line, offset);
       }
-    }
-  }
-
-  async updateInterface() {
-    const { word } = this.location!;
-    if (word?.hasAttribute("data-mention")) {
-      this.highlightedMention = word;
-      const rect = word.getBoundingClientRect();
-      await this.dotnetReference.invokeMethodAsync(
-        "OnMention",
-        (word as HTMLElement).innerText,
-        rect.top,
-        rect.left
-      );
     }
   }
 
@@ -292,6 +294,7 @@ export class Editor {
     try {
       if (!this.editing) {
         this.editing = true;
+
         const content = (line as HTMLElement).innerText;
         const tokens = await this.dotnetReference.invokeMethodAsync(
           "Tokenizer",
@@ -305,6 +308,19 @@ export class Editor {
           this.content?.appendChild(newLine);
         }
         this.setCaretInLine(newLine, offset);
+
+        this.location = this.getEditorCaretLocation();
+        const { word } = this.location!;
+        if (word?.hasAttribute("data-mention")) {
+          const rect = word?.getBoundingClientRect();
+
+          await this.dotnetReference.invokeMethodAsync(
+            "OnMention",
+            (word as HTMLElement).innerText,
+            rect!.top,
+            rect!.left
+          );
+        }
       }
     } finally {
       this.editing = false;
@@ -337,15 +353,15 @@ export class Editor {
   }
 
   async insertMentionAtHighlighted(username: string) {
-    if (this.highlightedMention) {
-      const marker = this.highlightedMention.getAttribute("data-mention");
-      (this.highlightedMention as HTMLElement).innerText =
-        marker + username + " ";
+    const { word } = this.location!;
+    if (word) {
+      const marker = word.getAttribute("data-mention");
+      (word as HTMLElement).innerText = marker + username + " ";
 
       const selection = window.getSelection();
       if (selection) {
         const range = new Range();
-        range.setEndAfter(this.highlightedMention);
+        range.setEndAfter(word);
         range.collapse();
 
         selection.removeAllRanges();
