@@ -7,6 +7,7 @@ namespace blazorServerMentions.Components;
 
 public interface IMention
 {
+    char Marker { get; set; }
     string Text { get; set; }
     string Value { get; set; }
     string Description { get; set; }
