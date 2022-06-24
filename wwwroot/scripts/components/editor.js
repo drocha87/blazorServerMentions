@@ -27,8 +27,6 @@ export class Editor {
     initialize(reference) {
         this.dotnetReference = reference;
         this.content = document.getElementsByClassName("editor")[0];
-        // start the editor with an empty line
-        this.appendNewLineEditor();
         const listener = this.content.addEventListener;
         // XXX: if we don't filter this event we'll send at least two input events with the same data
         // this is breaking the flow and the layout of the editor
@@ -38,9 +36,9 @@ export class Editor {
                 yield this.updateEditorContent();
             }
         }));
-        listener("keyup", (_) => __awaiter(this, void 0, void 0, function* () { return (this.location = this.getEditorCaretLocation()); }));
-        listener("focus", (_) => __awaiter(this, void 0, void 0, function* () { return (this.location = this.getEditorCaretLocation()); }));
-        listener("click", (_) => __awaiter(this, void 0, void 0, function* () { return (this.location = this.getEditorCaretLocation()); }));
+        listener("keyup", (_) => (this.location = this.getCaretLocation()));
+        listener("focus", (_) => (this.location = this.getCaretLocation()));
+        listener("click", (_) => (this.location = this.getCaretLocation()));
         listener("paste", (ev) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             const text = (_a = ev.clipboardData) === null || _a === void 0 ? void 0 : _a.getData("text");
@@ -55,13 +53,11 @@ export class Editor {
         }));
         listener("keydown", (event) => __awaiter(this, void 0, void 0, function* () {
             const ev = event;
-            if (this.isContentEmpty()) {
+            if (this.isContentEmpty() && ev.key === "Backspace") {
                 // to keep the editor with at least one line we must disable backspace when the
                 // content is empty
-                if (ev.key === "Backspace") {
-                    ev.preventDefault();
-                    return;
-                }
+                ev.preventDefault();
+                return;
             }
             // these keybings will be handled in C#
             if (this.isPopoverOpen) {
@@ -72,11 +68,6 @@ export class Editor {
                     case "Escape":
                         ev.preventDefault();
                         break;
-                    // case " ":
-                    //   await this.dotnetReference.invokeMethodAsync(
-                    //     "OnCloseMentionPopover"
-                    //   );
-                    //   break;
                 }
             }
         }));
@@ -129,15 +120,6 @@ export class Editor {
         }
         return null;
     }
-    appendNewLineEditor() {
-        var _a;
-        const line = document.createElement("div");
-        const br = document.createElement("br");
-        line.appendChild(br);
-        line.setAttribute("data-line", "");
-        (_a = this.content) === null || _a === void 0 ? void 0 : _a.appendChild(line);
-        return line;
-    }
     getLineAt(row) {
         const children = this.content.children;
         if (row > children.length) {
@@ -145,25 +127,6 @@ export class Editor {
             throw new Error("row is out of content range");
         }
         return children[row];
-    }
-    // This text editor has a line which is defined as following:
-    //     <div data-line> ...<span data-word></span> </div>
-    // But the column is an index as if the line was composed only by text.
-    // So this helper function will calculate the `index` which is the index in the
-    // line children and an `offset` the character position in the child (element at index)
-    getWordIndexAndOffset(line, col) {
-        let index = 0;
-        let offset = col;
-        for (let word of line.querySelectorAll("[data-word]")) {
-            index = parseInt(word.getAttribute("data-wordindex"), 10);
-            const start = parseInt(word.getAttribute("data-wordstart"), 10);
-            const end = parseInt(word.getAttribute("data-wordend"), 10);
-            if (col >= start && col <= end) {
-                break;
-            }
-            offset = col - end;
-        }
-        return { index, offset };
     }
     getWordAt(row, col) {
         const line = this.getLineAt(row);
@@ -175,10 +138,6 @@ export class Editor {
                 return word;
             }
         }
-        // if the caret is in the end of the line so try to return the previous word
-        // if ((line as HTMLElement).innerText?.length === col) {
-        //   return line.lastElementChild ?? undefined;
-        // }
     }
     getCaretOffsetInLine(line, sel) {
         const range = sel.getRangeAt(0);
@@ -190,7 +149,7 @@ export class Editor {
         // now counting the length of the selected string will result in the caret position
         return clone.toString().length;
     }
-    getEditorCaretLocation() {
+    getCaretLocation() {
         const selection = window.getSelection();
         if (selection && this.content) {
             const node = selection.anchorNode;
@@ -214,8 +173,18 @@ export class Editor {
     setCaretInLine(line, col) {
         const selection = window.getSelection();
         const range = new Range();
-        const { index, offset } = this.getWordIndexAndOffset(line, col);
-        const word = line.children[index];
+        let word = null;
+        let offset = col;
+        // find the word and the offset inside in line based on the col
+        for (let child of line.children) {
+            const len = child.innerText.length;
+            offset -= len;
+            if (offset <= 0) {
+                word = child;
+                offset = len + offset;
+                break;
+            }
+        }
         if (!(word === null || word === void 0 ? void 0 : word.firstChild)) {
             throw new Error("setCaretInLine: cannot set caret in null element");
         }
@@ -247,7 +216,7 @@ export class Editor {
                         (_b = this.content) === null || _b === void 0 ? void 0 : _b.appendChild(newLine);
                     }
                     this.setCaretInLine(newLine, offset);
-                    this.location = this.getEditorCaretLocation();
+                    this.location = this.getCaretLocation();
                     const { word } = this.location;
                     if (word === null || word === void 0 ? void 0 : word.hasAttribute("data-mention")) {
                         const rect = word === null || word === void 0 ? void 0 : word.getBoundingClientRect();
