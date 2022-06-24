@@ -44,9 +44,6 @@ export class Editor {
       "editor"
     )[0] as HTMLDivElement;
 
-    // start the editor with an empty line
-    this.appendNewLineEditor();
-
     const listener = this.content.addEventListener;
 
     // XXX: if we don't filter this event we'll send at least two input events with the same data
@@ -170,15 +167,6 @@ export class Editor {
       return this.nodeToLine(el.parentElement);
     }
     return null;
-  }
-
-  appendNewLineEditor() {
-    const line = document.createElement("div");
-    const br = document.createElement("br");
-    line.appendChild(br);
-    line.setAttribute("data-line", "");
-    this.content?.appendChild(line);
-    return line;
   }
 
   getLineAt(row: number) {
