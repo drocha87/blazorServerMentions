@@ -1,5 +1,5 @@
 div[data-line] {
-  padding: 0 10px;
+  /* padding: 0 10px; */
   /* border: 2px solid grey; */
   line-height: calc(1rem + 6px);
 }

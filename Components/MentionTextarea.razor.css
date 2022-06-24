@@ -5,6 +5,7 @@
   border-width: 1px;
 
   overflow: hidden;
+  padding: 10px;
 }
 
 .editor-container:focus-within {
@@ -14,7 +15,6 @@
 
 .editor {
   display: block;
-  margin-top: 10px;
 
   min-height: 60px;
   width: 100%;
