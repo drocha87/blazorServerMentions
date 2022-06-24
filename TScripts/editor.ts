@@ -158,27 +158,6 @@ export class Editor {
     return children[row];
   }
 
-  // This text editor has a line which is defined as following:
-  //     <div data-line> ...<span data-word></span> </div>
-  // But the column is an index as if the line was composed only by text.
-  // So this helper function will calculate the `index` which is the index in the
-  // line children and an `offset` the character position in the child (element at index)
-  getWordIndexAndOffset(line: Element, col: number) {
-    let index = 0;
-    let offset = col;
-
-    for (let word of line.querySelectorAll("[data-word]")) {
-      index = parseInt(word.getAttribute("data-wordindex")!, 10);
-      const start = parseInt(word.getAttribute("data-wordstart")!, 10);
-      const end = parseInt(word.getAttribute("data-wordend")!, 10);
-      if (col >= start && col <= end) {
-        break;
-      }
-      offset = col - end;
-    }
-    return { index, offset };
-  }
-
   getWordAt(row: number, col: number) {
     const line = this.getLineAt(row);
     for (let word of line.querySelectorAll("[data-word]")) {
@@ -231,8 +210,19 @@ export class Editor {
     const selection = window.getSelection();
     const range = new Range();
 
-    const { index, offset } = this.getWordIndexAndOffset(line, col);
-    const word = line.children[index];
+    let word: HTMLElement | null = null;
+    let offset = col;
+
+    // find the word and the offset inside in line based on the col
+    for (let child of line.children) {
+      const len = (child as HTMLElement).innerText.length;
+      offset -= len;
+      if (offset <= 0) {
+        word = child as HTMLElement;
+        offset = len + offset;
+        break;
+      }
+    }
 
     if (!word?.firstChild) {
       throw new Error("setCaretInLine: cannot set caret in null element");
