@@ -14,7 +14,7 @@ and a content editable.
 - [x] Copy and paste mentions
 - [x] Get the editor content as a string
 - [ ] Get the editor content as a tree of tokens
-- [ ] Show a tooltip when the mouse is over a `mention`
+- [x] Show a tooltip when the mouse is over a `mention`
 
 ## Quick Start
 
@@ -22,4 +22,78 @@ and a content editable.
 git clone https://github.com/drocha87/blazorServerMentions
 cd blazorServerMentions
 dotnet watch run
+```
+
+## Usage
+
+`IMention` is the interface which is used to provide information about a mention.
+
+```csharp
+public interface IMention
+{
+    char Marker { get; set; }
+    string Text { get; set; }
+    string Value { get; set; }
+    string Description { get; set; }
+    string? Avatar { get; set; }
+}
+```
+
+`SearchFunc` is a delegate with the following signature:
+
+```csharp
+Func<char, string, Task<IEnumerable<IMention>>>? SearchFunc
+```
+
+`Markers` is a string with a list of characters that will trigger the popover with the suggestions.
+
+Every time a marker is typed **SearchFunc** will be called to handle the query (_text after the marker_)
+and the marker itself. You must handle the suggestion properly based on the marker as the example below:
+
+```csharp
+private async Task<IEnumerable<IMention>> SearchItems(char marker, string query)
+{
+    return marker switch
+    {
+        '@' => await ProfileSvc.GetProfilesAsMentions(query, limit: 5),
+        '#' => await TagSvc.GetTags(query, limit: 5),
+        _ => throw new InvalidDataException(nameof(marker)),
+    };
+}
+```
+
+```html
+<MentionTextarea @ref="_mention" Markers="@("@#")" SearchFunc="SearchItems">
+    <SuggestionContentItem>
+        @* RenderFragment that will be rendered inside a MudListItem *@
+    </SuggestionContentItem>
+
+    <TooltipContent>
+        @* RenderFragment that will be rendered inside the MudPopover *@
+    </TooltipContent>
+</MentionTextarea>
+```
+
+
+## Customization
+
+To customize a mention you can edit the css file for example `wwwroot/style.css` addind the following content.
+
+```css
+/* to customize all mentions */
+span[data-mention] {
+  padding: 0 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* to customize the mention with the marker @ */
+span[data-mention="@"] {
+    background-color: #bde0fe;
+}
+
+/* to customize the mention with the marker # */
+span[data-mention="#"] {
+  background-color: #fbc4ab;
+}
 ```
