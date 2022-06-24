@@ -59,20 +59,9 @@ export class Editor {
       }
     });
 
-    listener(
-      "keyup",
-      async (_) => (this.location = this.getEditorCaretLocation())
-    );
-
-    listener(
-      "focus",
-      async (_) => (this.location = this.getEditorCaretLocation())
-    );
-
-    listener(
-      "click",
-      async (_) => (this.location = this.getEditorCaretLocation())
-    );
+    listener("keyup", (_) => (this.location = this.getCaretLocation()));
+    listener("focus", (_) => (this.location = this.getCaretLocation()));
+    listener("click", (_) => (this.location = this.getCaretLocation()));
 
     listener("paste", async (ev) => {
       const text = ev.clipboardData?.getData("text");
@@ -89,14 +78,11 @@ export class Editor {
 
     listener("keydown", async (event) => {
       const ev = event as KeyboardEvent;
-
-      if (this.isContentEmpty()) {
+      if (this.isContentEmpty() && ev.key === "Backspace") {
         // to keep the editor with at least one line we must disable backspace when the
         // content is empty
-        if (ev.key === "Backspace") {
-          ev.preventDefault();
-          return;
-        }
+        ev.preventDefault();
+        return;
       }
 
       // these keybings will be handled in C#
@@ -108,12 +94,6 @@ export class Editor {
           case "Escape":
             ev.preventDefault();
             break;
-
-          // case " ":
-          //   await this.dotnetReference.invokeMethodAsync(
-          //     "OnCloseMentionPopover"
-          //   );
-          //   break;
         }
       }
     });
@@ -209,11 +189,6 @@ export class Editor {
         return word;
       }
     }
-
-    // if the caret is in the end of the line so try to return the previous word
-    // if ((line as HTMLElement).innerText?.length === col) {
-    //   return line.lastElementChild ?? undefined;
-    // }
   }
 
   getCaretOffsetInLine(line: Element, sel: Selection) {
@@ -227,7 +202,7 @@ export class Editor {
     return clone.toString().length;
   }
 
-  getEditorCaretLocation(): EditorLocation {
+  getCaretLocation(): EditorLocation {
     const selection = window.getSelection();
     if (selection && this.content) {
       const node = selection.anchorNode;
@@ -297,7 +272,7 @@ export class Editor {
         }
         this.setCaretInLine(newLine, offset);
 
-        this.location = this.getEditorCaretLocation();
+        this.location = this.getCaretLocation();
         const { word } = this.location!;
         if (word?.hasAttribute("data-mention")) {
           const rect = word?.getBoundingClientRect();
