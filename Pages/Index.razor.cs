@@ -1,5 +1,4 @@
 using blazorServerMentions.Components;
-using blazorServerMentions.Data;
 using blazorServerMentions.Services;
 using Microsoft.AspNetCore.Components;
 
@@ -18,8 +17,6 @@ public partial class Index : ComponentBase
     {
         return marker switch
         {
-            // XXX: each marker should request different content, I'm requesting the same
-            //      just for demonstration purpose
             '@' => await ProfileSvc.GetProfilesAsMentions(query, limit: 5),
             '#' => await TagSvc.GetTags(query, limit: 5),
             _ => throw new InvalidDataException(nameof(marker)),
