@@ -30,10 +30,12 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
     [Parameter] public Func<char, string, Task<IEnumerable<IMention>>>? SearchFunc { get; set; }
     [Parameter] public RenderFragment<IMention>? SuggestionContentItem { get; set; }
+    [Parameter] public RenderFragment<IMention>? TooltipContent { get; set; }
 
-    private string _mentionContainerId = $"mention-{Guid.NewGuid()}";
+    private readonly string _mentionContainerId = $"mention-{Guid.NewGuid()}";
 
-    private bool _showMentionBox = false;
+    private bool _showMentionPopover = false;
+    private bool _showMentionTooltip = false;
 
     private string? CurrentWord { get; set; }
 
@@ -51,8 +53,10 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
             _jsPopoverPlacer = await JS.InvokeAsync<IJSObjectReference>("import", "./scripts/components/PopoverPlacer.js");
 
             var reference = DotNetObjectReference.Create(this);
+
             await _jsEditor.InvokeVoidAsync("editor.initialize", reference);
-            await _jsPopoverPlacer.InvokeVoidAsync("popoverPlacer.initialize", _mentionContainerId);
+            await _jsPopoverPlacer.InvokeVoidAsync("popover.initialize", _mentionContainerId, 0);
+            await _jsPopoverPlacer.InvokeVoidAsync("tooltip.initialize", _mentionContainerId, 1);
         }
         await base.OnAfterRenderAsync(firstRender);
     }
@@ -104,10 +108,10 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
     private async Task ResetMentions()
     {
-        if (_showMentionBox)
+        if (_showMentionPopover)
         {
             DisposeTimer();
-            _showMentionBox = false;
+            _showMentionPopover = false;
             _suggestions = Enumerable.Empty<IMention>();
             SelectedSuggestionIndex = 0;
             CurrentWord = null;
@@ -118,9 +122,9 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
     private async Task OpenMentionBox()
     {
-        if (!_showMentionBox)
+        if (!_showMentionPopover)
         {
-            _showMentionBox = true;
+            _showMentionPopover = true;
             _suggestions = Enumerable.Empty<IMention>();
             await _jsEditor!.InvokeVoidAsync("editor.isPopoverVisible", true);
             await InvokeAsync(StateHasChanged);
@@ -129,7 +133,7 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
     private async Task CheckKey(KeyboardEventArgs ev)
     {
-        if (_showMentionBox && _suggestions.Any())
+        if (_showMentionPopover && _suggestions.Any())
         {
             // handle keys if mention box is opened
             switch (ev.Key)
@@ -218,26 +222,43 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
     public class MentionPopover
     {
-        public string? Username { get; set; }
+        public char Marker { get; set; }
+        public string? Query { get; set; }
         public double Top { get; set; }
         public double Left { get; set; }
     }
 
-    // TODO: implement the popover on mouse hover
+    private IMention? _currentTooltipMention;
+
     [JSInvokable]
-    public Task PopoverMentionInfo(MentionPopover _)
+    public async Task MentionTooltipOpen(MentionPopover p)
     {
-        // Console.WriteLine($"username: {p.Username}, top: {p.Top}, left: {p.Left}");
-        return Task.CompletedTask;
+        if (!_showMentionPopover && SearchFunc is not null)
+        {
+            var mentions = await SearchFunc(p.Marker, p.Query!);
+            if (mentions.Any()) {
+                _currentTooltipMention = mentions.First();
+                _showMentionTooltip = true;
+                await _jsPopoverPlacer!.InvokeVoidAsync("tooltip.updateOffsets", p.Top, p.Left);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    [JSInvokable]
+    public async Task MentionTooltipClose()
+    {
+        _showMentionTooltip = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]
     public async Task OnMention(string word, double top, double left)
     {
         CurrentWord = word;
-        var isMentionBoxOpened = _showMentionBox;
+        var isMentionBoxOpened = _showMentionPopover;
         StartTimer();
-        await _jsPopoverPlacer!.InvokeVoidAsync("popoverPlacer.updateOffsets", top, left);
+        await _jsPopoverPlacer!.InvokeVoidAsync("popover.updateOffsets", top, left);
         await InvokeAsync(OpenMentionBox);
     }
 

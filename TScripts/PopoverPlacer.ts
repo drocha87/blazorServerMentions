@@ -3,23 +3,22 @@ class PopoverPlacer {
   offsetTop: number = 0;
   offsetLeft: number = 0;
 
-  initialize(containerId: string) {
+  initialize(containerId: string, childOffset: number) {
     // get the popover content, so we can positionate it according to the mention
-    let popoverElement =
-      document.getElementById(containerId)?.firstElementChild;
+    let el = document.getElementById(containerId)?.children[childOffset];
 
-    if (!popoverElement) {
+    if (!el) {
       throw new Error(
-        `popoverElement with id ${containerId} is not in the DOM`
+        `popover container with id ${containerId} is not in the DOM`
       );
     }
 
     // strip the first 8 "popover-" string because the popover content use the same guid defined after it
-    let popoverId = popoverElement.id.substring(8);
-    this.popover = document.getElementById(`popovercontent-${popoverId}`);
+    let id = el.id.substring(8);
+    this.popover = document.getElementById(`popovercontent-${id}`);
 
     if (this.popover) {
-      (window as any).mudPopover.disconnect(popoverId);
+      (window as any).mudPopover.disconnect(id);
 
       const config: MutationObserverInit = {
         attributes: true,
@@ -61,4 +60,5 @@ class PopoverPlacer {
   }
 }
 
-export const popoverPlacer = new PopoverPlacer();
+export const popover = new PopoverPlacer();
+export const tooltip = new PopoverPlacer();

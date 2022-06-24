@@ -10,7 +10,9 @@
     <MudText Typo="Typo.h3" GutterBottom="true">How to use it</MudText>
 
     <MudText Class="mb-8">
-        Type <b>@@</b> and start typing some letters for example <b>as</b>
+        To "mention" a user, simply enter the <b>@@</b> symbol and select the desired
+        record from the "Mentions" drop-down user list, but if you need to "mention"
+        a channel enter <b>#</b> and select a channel from the list.
     </MudText>
 
     <MudAlert Severity="Severity.Normal">
@@ -50,6 +52,39 @@
                     }
                 </MudStack>
             </SuggestionContentItem>
+            <TooltipContent>
+                @if (context.Marker == '@')
+                {
+                    <MudStack Row Class="pa-4" AlignItems="AlignItems.Center">
+                        <MudAvatar Image="@context.Avatar" Size="Size.Medium"></MudAvatar>
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body1">
+                                @context.Text
+                            </MudText>
+                            <MudText Typo="Typo.caption">
+                                @@@context.Value
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+                }
+                else if (context.Marker == '#')
+                {
+                    <MudStack Row Class="pa-4" AlignItems="AlignItems.Center">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body1">
+                                @context.Text channel
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Primary">
+                                #@context.Value
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+                }
+                else
+                {
+
+                }
+            </TooltipContent>
         </MentionTextarea>
     </div>
 

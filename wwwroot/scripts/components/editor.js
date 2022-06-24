@@ -234,6 +234,21 @@ export class Editor {
         el.innerText = token.value;
         for (let attr in token.attributes) {
             el.setAttribute(attr, token.attributes[attr]);
+            if (attr === "data-mention") {
+                el.addEventListener("mouseenter", (ev) => __awaiter(this, void 0, void 0, function* () {
+                    const word = ev.target;
+                    const rect = word.getBoundingClientRect();
+                    yield this.dotnetReference.invokeMethodAsync("MentionTooltipOpen", {
+                        marker: word.getAttribute("data-mention"),
+                        query: word.innerText.substring(1),
+                        top: rect.top,
+                        left: rect.left,
+                    });
+                }));
+                el.addEventListener("mouseleave", (ev) => __awaiter(this, void 0, void 0, function* () {
+                    yield this.dotnetReference.invokeMethodAsync("MentionTooltipClose");
+                }));
+            }
         }
         return el;
     }

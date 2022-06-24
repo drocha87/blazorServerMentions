@@ -13,18 +13,18 @@ class PopoverPlacer {
         this.offsetTop = 0;
         this.offsetLeft = 0;
     }
-    initialize(containerId) {
+    initialize(containerId, childOffset) {
         var _a;
         // get the popover content, so we can positionate it according to the mention
-        let popoverElement = (_a = document.getElementById(containerId)) === null || _a === void 0 ? void 0 : _a.firstElementChild;
-        if (!popoverElement) {
-            throw new Error(`popoverElement with id ${containerId} is not in the DOM`);
+        let el = (_a = document.getElementById(containerId)) === null || _a === void 0 ? void 0 : _a.children[childOffset];
+        if (!el) {
+            throw new Error(`popover container with id ${containerId} is not in the DOM`);
         }
         // strip the first 8 "popover-" string because the popover content use the same guid defined after it
-        let popoverId = popoverElement.id.substring(8);
-        this.popover = document.getElementById(`popovercontent-${popoverId}`);
+        let id = el.id.substring(8);
+        this.popover = document.getElementById(`popovercontent-${id}`);
         if (this.popover) {
-            window.mudPopover.disconnect(popoverId);
+            window.mudPopover.disconnect(id);
             const config = {
                 attributes: true,
             };
@@ -58,5 +58,6 @@ class PopoverPlacer {
         this.offsetLeft = left;
     }
 }
-export const popoverPlacer = new PopoverPlacer();
+export const popover = new PopoverPlacer();
+export const tooltip = new PopoverPlacer();
 //# sourceMappingURL=PopoverPlacer.js.map

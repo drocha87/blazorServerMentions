@@ -1,7 +1,7 @@
-<MudOverlay @bind-Visible="_showMentionBox" AutoClose> </MudOverlay>
+<MudOverlay @bind-Visible="_showMentionPopover" AutoClose> </MudOverlay>
 
 <div class="absolute" id="@_mentionContainerId">
-    <MudPopover Open="@_showMentionBox">
+    <MudPopover Open="@_showMentionPopover">
         <MudList Clickable Dense @bind-SelectedValue="SelectedSuggestionIndex">
             @if (_suggestions is not null)
             {
@@ -39,6 +39,13 @@
                 </MudListItem>
             }
         </MudList>
+    </MudPopover>
+
+    <MudPopover Open="@_showMentionTooltip">
+        @if (TooltipContent is not null && _currentTooltipMention is not null)
+        {
+            @TooltipContent(_currentTooltipMention)
+        }
     </MudPopover>
 </div>
 

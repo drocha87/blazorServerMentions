@@ -9,6 +9,7 @@ span[data-word] {}
 span[data-mention] {
   padding: 0 2px;
   border-radius: 4px;
+  cursor: pointer;
 }
 
 span[data-mention="@"] {
