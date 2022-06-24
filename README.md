@@ -1,6 +1,6 @@
 # Blazor Mentions
 
-https://user-images.githubusercontent.com/31552590/173620006-d1f24986-641a-45a1-8d79-02c0975ebf54.mp4
+https://user-images.githubusercontent.com/31552590/175610537-238875c5-90dd-4539-b5d9-3ba5e1f525c1.mp4
 
 **This repository is an experiment in creating a component to manage completions,
 this is not ready to use**
