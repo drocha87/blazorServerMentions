@@ -20,7 +20,7 @@ public partial class MentionTextarea : ComponentBase, IAsyncDisposable
 
     [Parameter] public EventCallback<string> TextChanged { get; set; }
 
-    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Placeholder { get; set; } = "Type some text";
 
     [Parameter] public string Delimiters { get; set; } = @"([.,;\s])";
     [Parameter] public string Markers { get; set; } = "@#";

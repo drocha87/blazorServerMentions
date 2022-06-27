@@ -26,6 +26,13 @@
   overflow-wrap: break-word;
 }
 
+.editor[data-mentiontextareaempty]::before {
+  content: attr(data-mentionplaceholder);
+  position: absolute;
+  top: 7px; /* FIXME: this magic number is to proper align the placeholder */
+  color: #888888;
+}
+
 .editor-typo {
   font-family: var(--mud-typography-subtitle1-family);
   font-size: var(--mud-typography-subtitle1-size);

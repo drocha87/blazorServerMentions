@@ -49,8 +49,12 @@
     </MudPopover>
 </div>
 
-<div class="editor-container">
-    <div class="editor editor-typo" contenteditable data-editor @onkeydown="CheckKey">
+<div class="relative editor-container">
+    <div class="editor editor-typo"
+         contenteditable
+         data-editor
+         data-mentionplaceholder="@Placeholder"
+         @onkeydown="CheckKey">
         @* start the editor with an empty line *@
         <div data-line><br></div>
     </div>

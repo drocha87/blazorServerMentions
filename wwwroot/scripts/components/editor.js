@@ -25,8 +25,11 @@ export class Editor {
         }
     }
     initialize(reference) {
+        var _a;
         this.dotnetReference = reference;
         this.content = document.getElementsByClassName("editor")[0];
+        // XXX: for now we don't check if the content is empty or not
+        (_a = this.content) === null || _a === void 0 ? void 0 : _a.setAttribute("data-mentiontextareaempty", "");
         const listener = this.content.addEventListener;
         // XXX: if we don't filter this event we'll send at least two input events with the same data
         // this is breaking the flow and the layout of the editor
@@ -40,8 +43,8 @@ export class Editor {
         listener("focus", (_) => (this.location = this.getCaretLocation()));
         listener("click", (_) => (this.location = this.getCaretLocation()));
         listener("paste", (ev) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            const text = (_a = ev.clipboardData) === null || _a === void 0 ? void 0 : _a.getData("text");
+            var _b;
+            const text = (_b = ev.clipboardData) === null || _b === void 0 ? void 0 : _b.getData("text");
             const selection = window.getSelection();
             if (!(selection === null || selection === void 0 ? void 0 : selection.rangeCount))
                 return false;
@@ -201,7 +204,7 @@ export class Editor {
         return "";
     }
     emitEditorUpdate(line, offset) {
-        var _a, _b;
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 if (!this.editing) {
@@ -225,6 +228,12 @@ export class Editor {
                 }
             }
             finally {
+                if (this.isContentEmpty()) {
+                    (_c = this.content) === null || _c === void 0 ? void 0 : _c.setAttribute("data-mentiontextareaempty", "");
+                }
+                else {
+                    (_d = this.content) === null || _d === void 0 ? void 0 : _d.removeAttribute("data-mentiontextareaempty");
+                }
                 this.editing = false;
             }
         });

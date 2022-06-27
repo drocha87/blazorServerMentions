@@ -44,6 +44,8 @@ export class Editor {
       "editor"
     )[0] as HTMLDivElement;
 
+    // XXX: for now we don't check if the content is empty or not
+    this.content?.setAttribute("data-mentiontextareaempty", "");
     const listener = this.content.addEventListener;
 
     // XXX: if we don't filter this event we'll send at least two input events with the same data
@@ -276,6 +278,11 @@ export class Editor {
         }
       }
     } finally {
+      if (this.isContentEmpty()) {
+        this.content?.setAttribute("data-mentiontextareaempty", "");
+      } else {
+        this.content?.removeAttribute("data-mentiontextareaempty");
+      }
       this.editing = false;
     }
   }
